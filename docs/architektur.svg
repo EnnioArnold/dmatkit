@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-labelledby="t d">
+  <title id="t">Aufbau von dmatkit</title>
+  <desc id="d">Notebook und Fenster greifen auf denselben Rechenkern zu. Der liefert Rechenweg, Zeichnung und Animation. Das Fenster kann das Ergebnis optional bei Wolfram|Alpha prüfen.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1,1 L9,5 L1,9" fill="none" stroke="#4f5d75" stroke-width="1.4"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #2d3142; }
+    .n { font-size: 13px; font-weight: 600; }
+    .s { font-size: 10px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; fill: #5a6580; }
+    .e { font-size: 8px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; fill: #5a6580; letter-spacing: 0.18em; }
+    .a { font-size: 10px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; fill: #bf4520; letter-spacing: 0.04em; }
+  </style>
+
+  <rect width="760" height="300" fill="#f5f5f5"/>
+
+  <!-- Spaltenköpfe -->
+  <text class="e" x="40" y="40">ZUGANG</text>
+  <text class="e" x="290" y="40">RECHNEN</text>
+  <text class="e" x="560" y="30">ERGEBNIS</text>
+
+  <!-- Pfeile zuerst, damit die Kästen darüber liegen -->
+  <g fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)">
+    <line x1="210" y1="110" x2="290" y2="110"/>
+    <line x1="210" y1="190" x2="290" y2="190"/>
+    <path d="M480,115 H512 Q520,115 520,107 V76 Q520,68 528,68 H560"/>
+    <line x1="480" y1="150" x2="560" y2="150"/>
+    <path d="M480,185 H512 Q520,185 520,193 V224 Q520,232 528,232 H560"/>
+  </g>
+  <path d="M125,218 V254 Q125,262 133,262 H290" fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+  <!-- Zugang -->
+  <rect x="40" y="82" width="170" height="56" rx="6" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/>
+  <text class="n" x="56" y="106">Notebook</text>
+  <text class="s" x="56" y="124">import dmatkit as dk</text>
+
+  <rect x="40" y="162" width="170" height="56" rx="6" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/>
+  <text class="n" x="56" y="186">Fenster</text>
+  <text class="s" x="56" y="204">app/dmatkit_qt.py</text>
+
+  <!-- Kern, der eine Fokuspunkt -->
+  <rect x="290" y="100" width="190" height="100" rx="6" fill="#bf4520" fill-opacity="0.08" stroke="#bf4520" stroke-width="1.4"/>
+  <text class="a" x="306" y="122">EIN MODUL</text>
+  <text class="n" x="306" y="144" style="font-size:15px">dmatkit</text>
+  <text class="s" x="306" y="164">exakt mit SymPy</text>
+  <text class="s" x="306" y="180">Logik · Zahlen · Algorithmen</text>
+
+  <!-- Prüfung, optional -->
+  <rect x="290" y="236" width="190" height="52" rx="6" fill="#f5f5f5" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
+  <text class="n" x="306" y="259">Wolfram|Alpha</text>
+  <text class="s" x="306" y="276">prüft das Ergebnis</text>
+
+  <!-- Ergebnis -->
+  <rect x="560" y="40" width="160" height="56" rx="6" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/>
+  <text class="n" x="576" y="64">Rechenweg</text>
+  <text class="s" x="576" y="82">Regel pro Schritt · LaTeX</text>
+
+  <rect x="560" y="122" width="160" height="56" rx="6" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/>
+  <text class="n" x="576" y="146">Zeichnung</text>
+  <text class="s" x="576" y="164">Matplotlib · Plotly</text>
+
+  <rect x="560" y="204" width="160" height="56" rx="6" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/>
+  <text class="n" x="576" y="228">Aufgaben</text>
+  <text class="s" x="576" y="246">Serien 1–5 · Prüfstände</text>
+</svg>
