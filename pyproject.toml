@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmatkit"
+version = "0.1.0"
+description = "Diskrete Mathematik mit nachvollziehbarem Rechenweg (HSLU DMATH-ALGO)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["sympy", "numpy", "matplotlib", "plotly", "PySide6"]
+
+[project.optional-dependencies]
+anim = ["manimgx; python_version >= '3.13'"]
+
+[project.scripts]
+dmatkit = "dmatkit.app.dmatkit_qt:main"
+
+# Der Repo-Ordner ist selbst das Paket `dmatkit`.
+[tool.setuptools]
+packages = ["dmatkit", "dmatkit.rechnen", "dmatkit.grafik", "dmatkit.aufgaben", "dmatkit.app"]
+py-modules = []
+
+[tool.setuptools.package-dir]
+dmatkit = "."
+"dmatkit.rechnen" = "rechnen"
+"dmatkit.grafik" = "grafik"
+"dmatkit.aufgaben" = "aufgaben"
+"dmatkit.app" = "app"

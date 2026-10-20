@@ -447,5 +447,20 @@ check(win.pages[0].view.message[0] == "busy")
 app.processEvents()
 win.pages[0].view.restyle()
 
+# Animation: Reiter ist da, Ergebnis kommt an, Rendern liefert ein MP4 (nur mit manimgx/Manim)
+pg = win.pages[0]
+check(pg.seg_out.options[-1] == "Animation" and pg.anim.result is not None or pg.anim.result is None)
+pg.compute()
+pg.wait()
+check(pg.anim.result is pg.result and pg.result is not None, "Animation bekommt das Ergebnis")
+if A.dk_anim and A.dk_anim.manim_available()[0]:
+    pg.anim.start()
+    end = time.time() + 120
+    while pg.anim.busy and time.time() < end:
+        app.processEvents()
+        time.sleep(0.02)
+    check(pg.anim.path is not None and pg.anim.path.exists(), pg.anim.status.text())
+pg.anim.shutdown()
+
 win.close()
 print(f"tests_app: {N['ok']} Prüfungen ok. Bilder in {SHOTS}")

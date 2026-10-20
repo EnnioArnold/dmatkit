@@ -3,3 +3,5 @@ numpy
 matplotlib
 plotly
 PySide6
+# Animationen sind freiwillig (Python 3.13+); Rückfall: manim + ffmpeg
+# manimgx
