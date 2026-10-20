@@ -17,7 +17,13 @@ Nötig ist nur Python mit SymPy. Für Zeichnungen und Fenster kommt dazu:
 
 ```bash
 pip install -r requirements.txt      # sympy, numpy, matplotlib, plotly, PySide6
+pip install manimgx                  # Animationen, freiwillig (Python 3.13+)
 ```
+
+manimgx rendert auf der GPU und schreibt das MP4 ohne ffmpeg. Als Rückfall
+geht Manim CE (`brew install cairo pango pkg-config ffmpeg`, `pip install manim`).
+Die Videos kommen im Swiss-Design: Schwarz/Weiss mit rotem Akzent. Beispiel:
+`python3 -m dmatkit.grafik.anim 409` rendert die Umwandlung 409 → Binär.
 
 Der Ordner `dmatkit/` liegt neben deinen Wochen-Ordnern. Aus einem Notebook in
 `Week 3/` heraus:
