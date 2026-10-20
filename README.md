@@ -13,6 +13,17 @@ Programmieranteil gibt es als Gerüst mit Prüfstand statt als Musterlösung.
 
 ## Installieren
 
+Als Paket (Notebook und App in einem):
+
+```bash
+pip3 install git+https://github.com/EnnioArnold/dmatkit
+python3 -m dmatkit        # öffnet die Qt-App (auch: dmatkit)
+```
+
+Im Notebook dann `import dmatkit as dk`. Mit `pip3 install "dmatkit[anim] @ git+https://github.com/EnnioArnold/dmatkit"` kommt manimgx dazu.
+
+Oder ohne Installation, aus dem Ordner:
+
 Nötig ist nur Python mit SymPy. Für Zeichnungen und Fenster kommt dazu:
 
 ```bash
