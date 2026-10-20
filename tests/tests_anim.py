@@ -64,6 +64,17 @@ def test_job_json_roundtrip():
     assert anim.AnimationJob.from_json(job.to_json()) == job
 
 
+def test_figure_becomes_overview_slide():
+    import matplotlib
+    matplotlib.use("Agg")
+    r = dk.eval_bool("False or True")
+    job = anim.job_from_result(r, figure=dk.plot_syntax_tree(r.formula))
+    heads = [s["head"] for s in job.slides]
+    assert heads[0] == "Überblick" and heads[-1] == "Fazit", heads
+    image = job.slides[0]["image"]
+    assert os.path.getsize(image) > 1000
+
+
 def test_engine_forced():
     os.environ["DMATKIT_ENGINE"] = "manim"
     try:

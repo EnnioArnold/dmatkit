@@ -91,12 +91,13 @@ class AnimationJob:
 
 
 def job_from_result(result, *, theme: Theme | None = None, quality: str = "low",
-                    title: str = "") -> AnimationJob:
+                    title: str = "", figure=None) -> AnimationJob:
     """
     Baut den Auftrag aus dem Rechenweg irgendeines dmatkit-Ergebnisses
     (`to_binary(409)`, `truth_table(...)`, `resolution(...)`, ...): ein Bild je
     Schritt mit Regel, Erklärung, Zwischenergebnissen und Tabelle, am Ende die
-    Ergebnisgrössen in Rot.
+    Ergebnisgrössen in Rot. Mit `figure` (matplotlib, etwa aus dem Reiter
+    »Zeichnung«) steht die Zeichnung als Überblick am Anfang.
     """
     from ..rechnen.render import text_any, tex_to_text
 
@@ -121,6 +122,12 @@ def job_from_result(result, *, theme: Theme | None = None, quality: str = "low",
                        "detail": tex_to_text(step.detail),
                        "items": [piece(l, o) for l, o in step.items],
                        "table": table, "final": False})
+    theme = theme or Theme()
+    if figure is not None:
+        png = Path(tempfile.mkdtemp(prefix="dmatkit-fig-")) / "figur.png"
+        figure.savefig(png, dpi=200, facecolor=theme.background)
+        slides.insert(0, {"num": 0, "head": "Überblick", "rule": "", "detail": "",
+                          "items": [], "table": None, "final": False, "image": str(png)})
     if result.highlights:
         slides.append({"num": 0, "head": "Fazit", "rule": "", "detail": "",
                        "items": [piece(l, o) for l, o in result.highlights],
@@ -128,7 +135,7 @@ def job_from_result(result, *, theme: Theme | None = None, quality: str = "low",
     if not slides:
         raise ValueError("Dieses Ergebnis hat keinen Rechenweg zum Zeigen.")
     return AnimationJob(slides=slides, title=title or tex_to_text(result.title),
-                        theme=theme or Theme(), quality=quality)
+                        theme=theme, quality=quality)
 
 
 # --------------------------------------------------------------------------
@@ -170,9 +177,9 @@ INSTALL_HINT = ("pip install manimgx   # Rendering und Videoausgabe in einem Pak
 def _build_scenes():
     """Erzeugt die Szenenklassen erst beim Aufruf, damit das Modul ohne Manim importierbar bleibt."""
     mod = importlib.import_module(engine())
-    (Scene, VGroup, FadeIn, FadeOut, Create, Line, Rectangle, LaggedStart, Indicate, Flash,
+    (Scene, VGroup, FadeIn, FadeOut, Create, Line, Rectangle, ImageMobject, LaggedStart, Indicate, Flash,
      GrowFromCenter, Transform, ReplacementTransform, DOWN, LEFT, RIGHT, UP, DR, UL) = (
-        getattr(mod, n) for n in ("Scene VGroup FadeIn FadeOut Create Line Rectangle LaggedStart Indicate "
+        getattr(mod, n) for n in ("Scene VGroup FadeIn FadeOut Create Line Rectangle ImageMobject LaggedStart Indicate "
                                   "Flash GrowFromCenter Transform ReplacementTransform DOWN LEFT RIGHT UP DR UL").split())
     font = "Noto Sans" if engine() == "manimgx" else None
 
@@ -216,10 +223,17 @@ def _build_scenes():
             bar = Line(col.get_top(), col.get_bottom(), color=ink if on_band else th.accent, stroke_width=6)
             return VGroup(bar, col).arrange(RIGHT, buff=0.3)
 
+        def go(self, *anims, run_time=1.0):
+            self.play(*anims, run_time=run_time * self.speed)
+
+        def pause(self, seconds):
+            self.wait(seconds * self.speed)
+
         def construct(self):
             job = AnimationJob.from_json(os.environ["DMATKIT_JOB"])
             th, slides = job.theme, job.slides
             n = len(slides)
+            self.speed = 1.0 if n <= 8 else max(0.45, 8 / n)    # lange Rechenwege laufen schneller
             W, y = self.W, self.BAR_Y
             self.camera.background_color = th.background
 
@@ -229,13 +243,13 @@ def _build_scenes():
             rule = Line(LEFT * 1.6, RIGHT * 1.6, color=th.accent, stroke_width=10).next_to(big, DOWN, buff=0.5)
             sub = Text(f"Rechenweg in {sum(1 for s in slides if not s['final'])} Schritten",
                        font_size=28, color=th.muted).next_to(rule, DOWN, buff=0.4)
-            self.play(FadeIn(big, shift=UP * 0.3), Create(rule), run_time=1.0)
-            self.play(FadeIn(sub), run_time=0.4)
-            self.wait(0.7)
+            self.go(FadeIn(big, shift=UP * 0.3), Create(rule), run_time=1.0)
+            self.go(FadeIn(sub), run_time=0.4)
+            self.pause(0.7)
             small = Text(job.title, font_size=22, color=th.muted).to_corner(UL, buff=0.45)
             track = Line([-W / 2, y, 0], [W / 2, y, 0], color=th.muted, stroke_width=2).set_opacity(0.35)
             bar = Line([-W / 2, y, 0], [-W / 2 + 0.01, y, 0], color=th.accent, stroke_width=7)
-            self.play(ReplacementTransform(big, small), FadeOut(rule), FadeOut(sub), FadeIn(track),
+            self.go(ReplacementTransform(big, small), FadeOut(rule), FadeOut(sub), FadeIn(track),
                       run_time=0.8)
             counter = None
 
@@ -249,10 +263,10 @@ def _build_scenes():
                 # Inhalt
                 ink = th.background if final else th.text
                 head_parts = []
-                if not final:
+                if s["num"] and not final:
                     head_parts.append(Text(f"{s['num']:02d}", font_size=84, color=th.accent))
                 head_parts.append(Text(wrap(s["head"], 34), font_size=44 if not final else 40, color=ink))
-                head = VGroup(*head_parts).arrange(RIGHT, buff=0.45, aligned_edge=DOWN if not final else UP)
+                head = VGroup(*head_parts).arrange(RIGHT, buff=0.45, aligned_edge=DOWN if s["num"] and not final else UP)
                 body = [head]
                 chip = None
                 if s["rule"]:
@@ -275,6 +289,10 @@ def _build_scenes():
                     tbl, table_rows = self.grid(s["table"], th)
                     marks = [""] + s["table"]["marks"]
                     body.append(tbl)
+                picture = None
+                if s.get("image"):
+                    picture = ImageMobject(s["image"])
+                    picture.scale(min(4.7 / picture.height, 12.6 / picture.width))
                 group = VGroup(*body).arrange(DOWN, aligned_edge=LEFT, buff=0.38)
                 group.scale(min(1.0, 12.4 / group.width, 5.4 / group.height))
                 if final:
@@ -284,6 +302,11 @@ def _build_scenes():
 
                 # Hintergrund-Elemente: roter Balken (Ergebnis), Zeilenfarbe (Tabelle)
                 extras = []
+                if picture is not None:
+                    picture.move_to([0, -1.0, 0])      # die ganze freie Fläche unter der Überschrift
+                    frame = Rectangle(width=picture.width + 0.25, height=picture.height + 0.25,
+                                      color=th.accent, stroke_width=3).move_to(picture)
+                    extras += [frame, picture]
                 if final:
                     band = Rectangle(width=W + 0.4, height=group.height + 1.3, color=th.accent,
                                      fill_color=th.accent, fill_opacity=1, stroke_width=0)
@@ -298,42 +321,49 @@ def _build_scenes():
                             extras.append(hl)
 
                 # Ablauf des Bildes
-                first = [FadeIn(head_parts[0], shift=RIGHT * 0.4)] if not final else []
+                first = [FadeIn(head_parts[0], shift=RIGHT * 0.4)] if s["num"] and not final else []
                 if final:
-                    self.play(GrowFromCenter(band), Transform(bar, new_bar), run_time=0.7)
+                    self.go(GrowFromCenter(band), Transform(bar, new_bar), run_time=0.7)
                     first = [FadeIn(head, shift=UP * 0.2)]
-                    self.play(*first, run_time=0.4)
+                    self.go(*first, run_time=0.4)
                 else:
-                    self.play(*first, FadeIn(head_parts[-1], shift=RIGHT * 0.4), Transform(bar, new_bar),
+                    self.go(*first, FadeIn(head_parts[-1], shift=RIGHT * 0.4), Transform(bar, new_bar),
                               run_time=0.6)
                 if counter is None:
                     counter = new_counter
-                    self.play(FadeIn(counter), run_time=0.2)
+                    self.go(FadeIn(counter), run_time=0.2)
                 else:
-                    self.play(Transform(counter, new_counter), run_time=0.2)
+                    self.go(Transform(counter, new_counter), run_time=0.2)
                 if chip is not None:
-                    self.play(Create(chip[0]), FadeIn(chip[1], shift=RIGHT * 0.2), run_time=0.5)
+                    self.go(Create(chip[0]), FadeIn(chip[1], shift=RIGHT * 0.2), run_time=0.5)
                 if s["detail"]:
-                    self.play(FadeIn(body[2 if chip is not None else 1], shift=UP * 0.1), run_time=0.5)
+                    self.go(FadeIn(body[2 if chip is not None else 1], shift=UP * 0.1), run_time=0.5)
                 if rows_:
-                    self.play(LaggedStart(*[FadeIn(r, shift=RIGHT * 0.35) for r in rows_], lag_ratio=0.35),
+                    self.go(LaggedStart(*[FadeIn(r, shift=RIGHT * 0.35) for r in rows_], lag_ratio=0.35),
                               run_time=0.5 + 0.35 * len(rows_))
                     if not final:
-                        self.play(Indicate(rows_[-1], color=th.accent, scale_factor=1.06), run_time=0.7)
+                        self.go(Indicate(rows_[-1], color=th.accent, scale_factor=1.06), run_time=0.7)
                     else:
-                        self.play(Flash(rows_[0], color=th.background, line_length=0.3, flash_radius=0.5),
+                        self.go(Flash(rows_[0], color=th.background, line_length=0.3, flash_radius=0.5),
                                   run_time=0.8)
+                if picture is not None:
+                    self.go(Create(extras[0]), run_time=0.6)
+                    self.go(FadeIn(picture, shift=UP * 0.25), run_time=0.9)
+                    self.go(Indicate(extras[0], color=th.accent, scale_factor=1.015), run_time=0.6)
                 if table_rows:
-                    self.play(LaggedStart(*[FadeIn(rg, shift=DOWN * 0.12) for rg in table_rows],
+                    self.go(LaggedStart(*[FadeIn(rg, shift=DOWN * 0.12) for rg in table_rows],
                                           lag_ratio=0.18), run_time=0.8 + 0.18 * len(table_rows))
                     if len(extras):
-                        self.play(*[FadeIn(e) for e in extras], run_time=0.5)
+                        self.go(*[FadeIn(e) for e in extras], run_time=0.5)
 
                 chars = sum(len(x) for x in (s["detail"], s["rule"])) + sum(len(v) for _, v in s["items"])
-                self.wait(min(4.5, max(1.0, 0.6 + 0.035 * chars)))
+                if picture is not None:
+                    self.wait(3.5)                  # die Zeichnung braucht Zeit zum Lesen, auch im Schnelllauf
+                else:
+                    self.pause(min(4.5, max(1.0, 0.6 + 0.035 * chars)))
                 if k < n - 1:
-                    self.play(FadeOut(VGroup(group, *extras), shift=LEFT * 0.6), run_time=0.45)
-            self.wait(2.0)
+                    self.go(FadeOut(group, *extras, shift=LEFT * 0.6), run_time=0.45)
+            self.pause(2.0)
 
     return {"rechenweg": RechenwegScene}
 

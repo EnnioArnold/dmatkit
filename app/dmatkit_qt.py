@@ -3506,6 +3506,7 @@ class AnimationPane(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.result = None
+        self.figure_source: Callable | None = None   # liefert die Figur zur Rechnung oder None
         self.path: Path | None = None
         self.busy = False
         lay = QVBoxLayout(self)
@@ -3561,21 +3562,18 @@ class AnimationPane(QWidget):
     def start(self):
         if self.busy or self.result is None or dk_anim is None:
             return
-        try:
-            job = dk_anim.job_from_result(
-                self.result, quality="medium",
-                theme=dk_anim.Theme.dark() if T["dark"] else dk_anim.Theme())
-        except ValueError as exc:
-            self.status.setText(str(exc))
-            return
         self.busy = True
         self.btn.setEnabled(False)
         self.status.setText("Animation startet …")
+        result, source = self.result, self.figure_source
+        theme = dk_anim.Theme.dark() if T["dark"] else dk_anim.Theme()
 
         def work():
             try:
-                path = dk_anim.render(job, progress=self.progressed.emit)
-                self.finished.emit(path, "")
+                # Dieselbe Zeichnung wie im Reiter »Zeichnung«; gibt es keine, bleibt es beim Rechenweg.
+                figure = source() if source else None
+                job = dk_anim.job_from_result(result, quality="medium", theme=theme, figure=figure)
+                self.finished.emit(dk_anim.render(job, progress=self.progressed.emit), "")
             except Exception as exc:                 # Fehlertext zeigen, nie den Faden beenden
                 self.finished.emit(None, str(exc))
 
@@ -3747,6 +3745,7 @@ class ToolPage(QWidget):
         self.stack_out.addWidget(self.view)
         self.stack_out.addWidget(self.plot)
         self.anim = AnimationPane()
+        self.anim.figure_source = self._anim_figure
         self.stack_out.addWidget(self.anim)
         self.card_out.lay.addWidget(self.stack_out, 1)
 
@@ -4079,6 +4078,16 @@ class ToolPage(QWidget):
             self.plot.show_figure(outcome.figure)
         else:
             self.plot.show_message(outcome.figure_error or NO_FIGURE)
+
+    def _anim_figure(self):
+        """Die Figur des Reiters »Zeichnung« für die Animation; None, wenn es keine gibt."""
+        if self.result is None:
+            return None
+        try:
+            with PLOT_LOCK:
+                return make_figure(self.KEY, self.result_p, self.result, T["dark"], 0)
+        except Exception:
+            return None
 
     def draw_variant(self):
         """Zeichnung neu bauen (Themawechsel, andere Ansicht) — im Hintergrund."""
