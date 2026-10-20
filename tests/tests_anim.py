@@ -38,7 +38,7 @@ def test_job_from_every_week():
 
 def test_binary_job_content():
     job = anim.job_from_result(dk.to_binary(409))
-    assert job.slides[-1]["final"] and "110011001" in " ".join(job.slides[-1]["items"])
+    assert job.slides[-1]["final"] and "110011001" in " ".join(v for _, v in job.slides[-1]["items"])
     assert anim.SCENE_NAMES["rechenweg"] == "RechenwegScene"
 
 

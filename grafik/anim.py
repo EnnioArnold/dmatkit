@@ -68,8 +68,9 @@ class AnimationJob:
     """
     Ein Rendering-Auftrag: der Rechenweg als Folge von Bildern.
 
-    slides — je Bild ein dict: head, rule, detail (Text), items (Zeilen),
-             table ({header, rows, marks} oder None), final (rot hervorheben)
+    slides — je Bild ein dict: num, head, rule, detail (Text), items
+             ([Name, Wert]-Paare), table ({header, rows, marks} oder None),
+             final (das Ergebnisbild am Ende)
     title  — Überschrift, bleibt über allen Bildern stehen
     """
     slides: list[dict] = field(default_factory=list)
@@ -102,8 +103,7 @@ def job_from_result(result, *, theme: Theme | None = None, quality: str = "low",
     dec, digits = result.decimal, result.digits
 
     def piece(label, obj):
-        value = text_any(obj, dec, digits)
-        return f"{tex_to_text(label)} = {value}" if label else value
+        return [tex_to_text(label) if label else "", text_any(obj, dec, digits)]
 
     slides = []
     for i, step in enumerate(result.steps, 1):
@@ -117,12 +117,12 @@ def job_from_result(result, *, theme: Theme | None = None, quality: str = "low",
                 marks = marks[:MAX_TABLE_ROWS] + [""]
             table = {"header": [text_any(h, dec, digits) or "·" for h in t.header],
                      "rows": rows, "marks": marks}
-        slides.append({"head": f"{i}. {tex_to_text(step.title)}", "rule": step.rule,
+        slides.append({"num": i, "head": tex_to_text(step.title), "rule": step.rule,
                        "detail": tex_to_text(step.detail),
                        "items": [piece(l, o) for l, o in step.items],
                        "table": table, "final": False})
     if result.highlights:
-        slides.append({"head": "Ergebnis", "rule": "", "detail": "",
+        slides.append({"num": 0, "head": "Fazit", "rule": "", "detail": "",
                        "items": [piece(l, o) for l, o in result.highlights],
                        "table": None, "final": True})
     if not slides:
@@ -170,8 +170,10 @@ INSTALL_HINT = ("pip install manimgx   # Rendering und Videoausgabe in einem Pak
 def _build_scenes():
     """Erzeugt die Szenenklassen erst beim Aufruf, damit das Modul ohne Manim importierbar bleibt."""
     mod = importlib.import_module(engine())
-    Scene, VGroup, FadeIn, FadeOut, Write, DOWN, LEFT, UP = (
-        getattr(mod, n) for n in "Scene VGroup FadeIn FadeOut Write DOWN LEFT UP".split())
+    (Scene, VGroup, FadeIn, FadeOut, Create, Line, Rectangle, LaggedStart, Indicate, Flash,
+     GrowFromCenter, Transform, ReplacementTransform, DOWN, LEFT, RIGHT, UP, DR, UL) = (
+        getattr(mod, n) for n in ("Scene VGroup FadeIn FadeOut Create Line Rectangle LaggedStart Indicate "
+                                  "Flash GrowFromCenter Transform ReplacementTransform DOWN LEFT RIGHT UP DR UL").split())
     font = "Noto Sans" if engine() == "manimgx" else None
 
     def Text(*args, **kw):
@@ -183,48 +185,154 @@ def _build_scenes():
         return "\n".join(textwrap.wrap(text, width) or [""])
 
     class RechenwegScene(Scene):
-        """Titel, dann je Schritt ein Bild: Überschrift, Regel, Erklärung, Zwischenergebnisse, Tabelle."""
+        """
+        Titelkarte, dann je Schritt ein Bild: grosse Schrittnummer, Regel als Chip,
+        Zwischenergebnisse, Tabelle (zeilenweise, markierte Zeilen rot hinterlegt).
+        Unten läuft eine Fortschrittsleiste mit; das Ergebnis steht zuletzt auf einem roten Balken.
+        """
+
+        W, BAR_Y = 14.2, -3.85
 
         def grid(self, table, th):
             rows = [table["header"]] + table["rows"]
-            marks = [""] + table["marks"]
-            cells = [[Text(c, font_size=24, color=th.muted if r == 0 else
-                           th.accent if marks[r] in ("bad", "hi") else th.text)
-                      for c in row] for r, row in enumerate(rows)]
-            widths = [max(row[i].width for row in cells) + 0.5 for i in range(len(rows[0]))]
-            g = VGroup()
+            cells = [[Text(c, font_size=26, color=th.muted if r == 0 else th.text) for c in row]
+                     for r, row in enumerate(rows)]
+            widths = [max(row[i].width for row in cells) + 0.6 for i in range(len(rows[0]))]
+            row_groups = []
             for r, row in enumerate(cells):
                 x = 0.0
                 for i, c in enumerate(row):
-                    c.move_to([x + widths[i] / 2, -r * 0.42, 0])
+                    c.move_to([x + widths[i] / 2, -r * 0.46, 0])
                     x += widths[i]
-                    g.add(c)
-            return g
+                row_groups.append(VGroup(*row))
+            return VGroup(*row_groups), row_groups
+
+        def item_row(self, name, value, th, big=False, on_band=False):
+            ink = th.background if on_band else th.text
+            soft = th.background if on_band else th.muted
+            val = Text(wrap(value, 46), font_size=46 if big else 36, color=ink)
+            col = VGroup(*([Text(name, font_size=22, color=soft)] if name else []), val)
+            col.arrange(DOWN, aligned_edge=LEFT, buff=0.1)
+            bar = Line(col.get_top(), col.get_bottom(), color=ink if on_band else th.accent, stroke_width=6)
+            return VGroup(bar, col).arrange(RIGHT, buff=0.3)
 
         def construct(self):
             job = AnimationJob.from_json(os.environ["DMATKIT_JOB"])
-            th = job.theme
+            th, slides = job.theme, job.slides
+            n = len(slides)
+            W, y = self.W, self.BAR_Y
             self.camera.background_color = th.background
-            title = Text(job.title, font_size=36, color=th.text).to_edge(UP)
-            self.play(Write(title), run_time=0.6)
-            for n, s in enumerate(job.slides):
-                parts = [Text(s["head"], font_size=34, color=th.accent if s["final"] else th.text)]
+
+            # --- Titelkarte
+            big = Text(job.title, font_size=56, color=th.text)
+            big.scale(min(1.0, 12.0 / big.width))
+            rule = Line(LEFT * 1.6, RIGHT * 1.6, color=th.accent, stroke_width=10).next_to(big, DOWN, buff=0.5)
+            sub = Text(f"Rechenweg in {sum(1 for s in slides if not s['final'])} Schritten",
+                       font_size=28, color=th.muted).next_to(rule, DOWN, buff=0.4)
+            self.play(FadeIn(big, shift=UP * 0.3), Create(rule), run_time=1.0)
+            self.play(FadeIn(sub), run_time=0.4)
+            self.wait(0.7)
+            small = Text(job.title, font_size=22, color=th.muted).to_corner(UL, buff=0.45)
+            track = Line([-W / 2, y, 0], [W / 2, y, 0], color=th.muted, stroke_width=2).set_opacity(0.35)
+            bar = Line([-W / 2, y, 0], [-W / 2 + 0.01, y, 0], color=th.accent, stroke_width=7)
+            self.play(ReplacementTransform(big, small), FadeOut(rule), FadeOut(sub), FadeIn(track),
+                      run_time=0.8)
+            counter = None
+
+            for k, s in enumerate(slides):
+                final = s["final"]
+                # Fortschritt
+                new_bar = Line([-W / 2, y, 0], [-W / 2 + W * (k + 1) / n, y, 0], color=th.accent, stroke_width=7)
+                new_counter = Text(f"{k + 1:02d} / {n:02d}", font_size=20, color=th.muted).to_corner(DR, buff=0.45)
+                new_counter.shift(UP * 0.35)
+
+                # Inhalt
+                ink = th.background if final else th.text
+                head_parts = []
+                if not final:
+                    head_parts.append(Text(f"{s['num']:02d}", font_size=84, color=th.accent))
+                head_parts.append(Text(wrap(s["head"], 34), font_size=44 if not final else 40, color=ink))
+                head = VGroup(*head_parts).arrange(RIGHT, buff=0.45, aligned_edge=DOWN if not final else UP)
+                body = [head]
+                chip = None
                 if s["rule"]:
-                    parts.append(Text("Regel: " + s["rule"], font_size=24, color=th.muted))
+                    label = Text("Regel   " + s["rule"], font_size=24, color=th.accent)
+                    chip = VGroup(Rectangle(width=label.width + 0.6, height=label.height + 0.36,
+                                            color=th.accent, stroke_width=2.5), label)
+                    label.move_to(chip[0])
+                    body.append(chip)
                 if s["detail"]:
-                    parts.append(Text(wrap(s["detail"], 80), font_size=26, color=th.muted))
-                parts += [Text(wrap(it, 64), font_size=30, color=th.accent if s["final"] else th.text)
-                          for it in s["items"]]
+                    body.append(Text(wrap(s["detail"], 95), font_size=24, color=th.muted))
+                rows_ = [self.item_row(nm, v, th, big=final, on_band=final) for nm, v in s["items"]]
+                if rows_:
+                    # Kurze Werte nebeneinander: spart Höhe, damit nichts klein geschrumpft wird.
+                    short = (not final and 1 < len(rows_) <= 4 and
+                             all(len(v) <= 22 and len(nm) <= 30 for nm, v in s["items"]))
+                    body.append(VGroup(*rows_).arrange(RIGHT if short else DOWN, aligned_edge=UP if short else LEFT,
+                                                       buff=0.9 if short else 0.35))
+                table_rows = marks = None
                 if s["table"]:
-                    parts.append(self.grid(s["table"], th))
-                group = VGroup(*parts).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
-                group.scale(min(1.0, 12.4 / group.width, 5.6 / group.height))
-                group.next_to(title, DOWN, buff=0.5).to_edge(LEFT, buff=0.7)
-                for part in parts:
-                    self.play(FadeIn(part), run_time=0.4)
-                self.wait(1.0 + 0.15 * len(parts))
-                if n < len(job.slides) - 1:
-                    self.play(FadeOut(group), run_time=0.3)
+                    tbl, table_rows = self.grid(s["table"], th)
+                    marks = [""] + s["table"]["marks"]
+                    body.append(tbl)
+                group = VGroup(*body).arrange(DOWN, aligned_edge=LEFT, buff=0.38)
+                group.scale(min(1.0, 12.4 / group.width, 5.4 / group.height))
+                if final:
+                    group.move_to([0, 0.2, 0]).to_edge(LEFT, buff=0.85)
+                else:
+                    group.to_edge(UP, buff=1.15).to_edge(LEFT, buff=0.85)
+
+                # Hintergrund-Elemente: roter Balken (Ergebnis), Zeilenfarbe (Tabelle)
+                extras = []
+                if final:
+                    band = Rectangle(width=W + 0.4, height=group.height + 1.3, color=th.accent,
+                                     fill_color=th.accent, fill_opacity=1, stroke_width=0)
+                    band.move_to(group)
+                    extras.append(band)
+                if table_rows:
+                    for r, rg in enumerate(table_rows):
+                        if marks[r] in ("hi", "bad", "ok") and r > 0:
+                            hl = Rectangle(width=tbl.width + 0.5, height=0.44, stroke_width=0,
+                                           fill_color=th.accent, fill_opacity=0.14 if marks[r] != "ok" else 0.06)
+                            hl.move_to([tbl.get_center()[0], rg.get_center()[1], 0])
+                            extras.append(hl)
+
+                # Ablauf des Bildes
+                first = [FadeIn(head_parts[0], shift=RIGHT * 0.4)] if not final else []
+                if final:
+                    self.play(GrowFromCenter(band), Transform(bar, new_bar), run_time=0.7)
+                    first = [FadeIn(head, shift=UP * 0.2)]
+                    self.play(*first, run_time=0.4)
+                else:
+                    self.play(*first, FadeIn(head_parts[-1], shift=RIGHT * 0.4), Transform(bar, new_bar),
+                              run_time=0.6)
+                if counter is None:
+                    counter = new_counter
+                    self.play(FadeIn(counter), run_time=0.2)
+                else:
+                    self.play(Transform(counter, new_counter), run_time=0.2)
+                if chip is not None:
+                    self.play(Create(chip[0]), FadeIn(chip[1], shift=RIGHT * 0.2), run_time=0.5)
+                if s["detail"]:
+                    self.play(FadeIn(body[2 if chip is not None else 1], shift=UP * 0.1), run_time=0.5)
+                if rows_:
+                    self.play(LaggedStart(*[FadeIn(r, shift=RIGHT * 0.35) for r in rows_], lag_ratio=0.35),
+                              run_time=0.5 + 0.35 * len(rows_))
+                    if not final:
+                        self.play(Indicate(rows_[-1], color=th.accent, scale_factor=1.06), run_time=0.7)
+                    else:
+                        self.play(Flash(rows_[0], color=th.background, line_length=0.3, flash_radius=0.5),
+                                  run_time=0.8)
+                if table_rows:
+                    self.play(LaggedStart(*[FadeIn(rg, shift=DOWN * 0.12) for rg in table_rows],
+                                          lag_ratio=0.18), run_time=0.8 + 0.18 * len(table_rows))
+                    if len(extras):
+                        self.play(*[FadeIn(e) for e in extras], run_time=0.5)
+
+                chars = sum(len(x) for x in (s["detail"], s["rule"])) + sum(len(v) for _, v in s["items"])
+                self.wait(min(4.5, max(1.0, 0.6 + 0.035 * chars)))
+                if k < n - 1:
+                    self.play(FadeOut(VGroup(group, *extras), shift=LEFT * 0.6), run_time=0.45)
             self.wait(2.0)
 
     return {"rechenweg": RechenwegScene}
@@ -298,7 +406,7 @@ def render(job: AnimationJob, *, progress: Callable[[int, str], None] | None = N
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
     # Die Engine zählt je Animation von 0 bis 100; für einen Balken, der nicht
     # zurückspringt, zählen wir die abgeschlossenen Animationen mit.
-    expected = len(job.slides) * 5 + 2
+    expected = len(job.slides) * 8 + 3
     log: list[str] = []
     done = last = 0
     timed_out = threading.Event()
