@@ -14,27 +14,54 @@ sys.path.insert(0, os.path.join(_here, '..', '..'))
 from dmatkit.grafik import anim  # noqa: E402
 
 
-def test_dec_to_bin_job():
-    job = anim.job_from_dec_to_bin(409)
-    assert job.scene == "steps" and anim.SCENE_NAMES["steps"] == "StepsScene"
-    assert job.lines[0] == "409 : 2 = 204  Rest 1" and len(job.lines) == 9
-    assert "110011001₂" in job.result
+import dmatkit as dk  # noqa: E402
+
+#: Je Woche eine Rechnung: jeder Rechenweg muss sich in einen Auftrag wandeln lassen.
+BEISPIELE = [
+    lambda: dk.to_binary(409),
+    lambda: dk.eval_bool("False or True and False"),
+    lambda: dk.truth_table("(A or B) and not C"),
+    lambda: dk.check_equivalence("A -> B", "not B -> not A"),
+    lambda: dk.has_duplicate([3, 1, 4, 1, 5]),
+    lambda: dk.entails(["A -> B", "A"], "B"),
+    lambda: dk.resolution(["A -> B", "B -> C"], "A -> C"),
+    lambda: dk.count_steps("decToBin", x=25),
+    lambda: dk.max_input_size("n**2", time_limit_s=60),
+]
 
 
-def test_dec_to_bin_zero_and_bad_input():
-    assert anim.job_from_dec_to_bin(0).lines == ["0 : 2 = 0  Rest 0"]
-    for bad in (-1, 2.5, True):
-        try:
-            anim.job_from_dec_to_bin(bad)
-        except ValueError:
-            continue
-        raise AssertionError(f"ValueError erwartet für {bad!r}")
+def test_job_from_every_week():
+    for make in BEISPIELE:
+        job = anim.job_from_result(make())
+        assert job.slides and job.title and job.scene in anim.SCENE_NAMES
+
+
+def test_binary_job_content():
+    job = anim.job_from_result(dk.to_binary(409))
+    assert job.slides[-1]["final"] and "110011001" in " ".join(job.slides[-1]["items"])
+    assert anim.SCENE_NAMES["rechenweg"] == "RechenwegScene"
+
+
+def test_long_table_is_cut():
+    job = anim.job_from_result(dk.truth_table("A and B and C and D"))
+    tables = [s["table"] for s in job.slides if s["table"]]
+    assert tables and all(len(t["rows"]) <= anim.MAX_TABLE_ROWS + 1 for t in tables)
+    assert all(len(t["rows"]) == len(t["marks"]) for t in tables)
+
+
+def test_no_steps_is_rejected():
+    class Leer:
+        title, decimal, digits, steps, highlights = "x", False, 4, [], []
+    try:
+        anim.job_from_result(Leer())
+    except ValueError:
+        return
+    raise AssertionError("ValueError erwartet")
 
 
 def test_job_json_roundtrip():
-    job = anim.job_from_dec_to_bin(25, theme=anim.Theme.dark())
-    again = anim.AnimationJob.from_json(job.to_json())
-    assert again == job
+    job = anim.job_from_result(dk.truth_table("A and B"), theme=anim.Theme.dark())
+    assert anim.AnimationJob.from_json(job.to_json()) == job
 
 
 def test_engine_forced():

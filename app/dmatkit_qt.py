@@ -56,8 +56,8 @@ except Exception:                                            # pragma: no cover
     pass
 
 from PySide6.QtCore import (QBuffer, QByteArray, QIODevice, QObject, QPoint,
-                            QPointF, QRectF, QSize, Qt, QThread, QTimer, Signal)
-from PySide6.QtGui import (QColor, QFont, QFontDatabase, QFontInfo, QFontMetricsF,
+                            QPointF, QRectF, QSize, Qt, QThread, QTimer, QUrl, Signal)
+from PySide6.QtGui import (QColor, QDesktopServices, QFont, QFontDatabase, QFontInfo, QFontMetricsF,
                            QGuiApplication, QImage, QPainter, QPen)
 from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame,
                                QGraphicsDropShadowEffect, QHBoxLayout, QLabel,
@@ -86,6 +86,18 @@ import dmatkit as dk                                          # noqa: E402
 from dmatkit.rechnen.core import fmt                          # noqa: E402
 from dmatkit.rechnen.render import tex_any, text_any, tex_to_text   # noqa: E402
 from orb import ThinkingOrb                                   # noqa: E402
+
+# Animationen sind freiwillig: ohne manimgx sagt der Reiter, was zu tun ist.
+try:
+    from dmatkit.grafik import anim as dk_anim
+except Exception:                                            # pragma: no cover
+    dk_anim = None
+try:
+    from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+    from PySide6.QtMultimediaWidgets import QVideoWidget
+    HAS_VIDEO = True
+except Exception:                                            # pragma: no cover
+    HAS_VIDEO = False
 
 MINUS = "−"
 
@@ -3481,6 +3493,122 @@ class CodeEdit(QPlainTextEdit):
 HISTORY_LIMIT = 10
 
 
+class AnimationPane(QWidget):
+    """
+    Die Ansicht »Animation«: rendert den Rechenweg des aktuellen Ergebnisses mit
+    manimgx (sonst Manim CE) und spielt das Video ab. Das Rendern läuft in einem
+    eigenen Faden, die Engine selbst in einem eigenen Prozess.
+    """
+
+    progressed = Signal(int, str)
+    finished = Signal(object, str)          # (Pfad oder None, Fehlertext)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.result = None
+        self.path: Path | None = None
+        self.busy = False
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
+        self.hint = label("", 11, "sec", wrap=True)
+        lay.addWidget(self.hint)
+        row = QHBoxLayout()
+        row.setSpacing(10)
+        self.btn = pill("Animation erstellen", "primary", self.start, small=True)
+        row.addWidget(self.btn)
+        self.btn_open = pill("Im Player öffnen", "plain", self.open_external, small=True)
+        self.btn_open.hide()
+        row.addWidget(self.btn_open)
+        self.status = label("", 11, "ter")
+        row.addWidget(self.status)
+        row.addStretch(1)
+        lay.addLayout(row)
+        self.player = None
+        self.video = None
+        if HAS_VIDEO:
+            self.video = QVideoWidget()
+            self.video.setMinimumHeight(260)
+            self.video.hide()
+            self.player = QMediaPlayer(self)
+            self.player.setAudioOutput(QAudioOutput(self))
+            self.player.setVideoOutput(self.video)
+            self.player.setLoops(QMediaPlayer.Loops.Infinite)
+            lay.addWidget(self.video, 1)
+        else:
+            lay.addStretch(1)
+        self.progressed.connect(lambda pct, text: self.status.setText(f"{text} {pct} %"))
+        self.finished.connect(self._finished)
+        self.set_result(None)
+
+    def set_result(self, result):
+        """Neues Ergebnis (oder None nach einem Fehler): altes Video verwerfen."""
+        self.result, self.path = result, None
+        if self.player is not None:
+            self.player.stop()
+            self.video.hide()
+        self.btn_open.hide()
+        self.status.setText("")
+        ok, why = dk_anim.manim_available() if dk_anim else (False, "Das Modul grafik.anim lässt sich nicht laden.")
+        if not ok:
+            self.hint.setText(f"{why}\n{dk_anim.INSTALL_HINT if dk_anim else 'pip install manimgx'}")
+        elif result is None:
+            self.hint.setText("Erst rechnen, dann gibt es einen Rechenweg zum Animieren.")
+        else:
+            self.hint.setText("Zeigt den Rechenweg Schritt für Schritt als Video, gerendert mit manimgx.")
+        self.btn.setEnabled(ok and result is not None and not self.busy)
+
+    def start(self):
+        if self.busy or self.result is None or dk_anim is None:
+            return
+        try:
+            job = dk_anim.job_from_result(
+                self.result, quality="medium",
+                theme=dk_anim.Theme.dark() if T["dark"] else dk_anim.Theme())
+        except ValueError as exc:
+            self.status.setText(str(exc))
+            return
+        self.busy = True
+        self.btn.setEnabled(False)
+        self.status.setText("Animation startet …")
+
+        def work():
+            try:
+                path = dk_anim.render(job, progress=self.progressed.emit)
+                self.finished.emit(path, "")
+            except Exception as exc:                 # Fehlertext zeigen, nie den Faden beenden
+                self.finished.emit(None, str(exc))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _finished(self, path, error: str):
+        self.busy = False
+        self.btn.setEnabled(self.result is not None)
+        if path is None:
+            self.status.setText(error.splitlines()[0] if error else "Das Rendern ist fehlgeschlagen.")
+            return
+        self.path = Path(path)
+        self.status.setText("Fertig.")
+        self.btn_open.show()
+        if self.player is not None:
+            self.video.show()
+            self.player.setSource(QUrl.fromLocalFile(str(self.path)))
+            self.player.play()
+        else:
+            self.open_external()
+
+    def open_external(self):
+        if self.path is not None:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.path)))
+
+    def restyle(self):
+        restyle_labels(self)
+
+    def shutdown(self):
+        if self.player is not None:
+            self.player.stop()
+
+
 class ToolPage(QWidget):
     """
     Gemeinsames Gerüst der fünf Seiten.
@@ -3597,7 +3725,7 @@ class ToolPage(QWidget):
         right.addWidget(self.card_out, 1)
         head = QHBoxLayout()
         head.setSpacing(10)
-        self.seg_out = Segmented(["Rechenweg", "Zeichnung"], 0, seg_width=104)
+        self.seg_out = Segmented(["Rechenweg", "Zeichnung", "Animation"], 0, seg_width=104)
         self.seg_out.changed.connect(lambda i: self.stack_out.setCurrentIndex(i))
         head.addWidget(self.seg_out)
         self.lbl_status = label("", 11, "ter")
@@ -3618,6 +3746,8 @@ class ToolPage(QWidget):
         self.plot.browser_requested.connect(self.open_in_browser)
         self.stack_out.addWidget(self.view)
         self.stack_out.addWidget(self.plot)
+        self.anim = AnimationPane()
+        self.stack_out.addWidget(self.anim)
         self.card_out.lay.addWidget(self.stack_out, 1)
 
     # -- Felder -----------------------------------------------------------
@@ -3912,6 +4042,7 @@ class ToolPage(QWidget):
             self.view.show_error(outcome.error)
             self.plot.show_message("Keine Zeichnung — die Rechnung ist nicht gelungen.")
             self.plot.allow_browser(False)
+            self.anim.set_result(None)
             self.wolfram.set_unavailable("")
             self.update_status("")
             show_view(self, 0)
@@ -3921,6 +4052,7 @@ class ToolPage(QWidget):
             self.stale = False
             self.view.show_vm(outcome.vm)
             self._set_plot(outcome)
+            self.anim.set_result(outcome.result)
             self.wolfram.set_unavailable(wolfram_support(self.KEY, p, outcome.result))
             self.remember()
             self.update_status("")
@@ -4050,6 +4182,7 @@ class ToolPage(QWidget):
         self.card_out.restyle()
         self.view.restyle()
         self.plot.restyle()
+        self.anim.restyle()
         self.wolfram.restyle()
         self.update_status()
         for key in self.previews:
@@ -4058,6 +4191,7 @@ class ToolPage(QWidget):
             self.draw_variant()
 
     def shutdown(self):
+        self.anim.shutdown()
         self.wolfram.shutdown()
         for thread, _worker, _h, _e in list(self._jobs.values()):
             thread.quit()

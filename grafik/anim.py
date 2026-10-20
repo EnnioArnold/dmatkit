@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Manim-Animationen (freiwillig): ein Rechenweg erscheint Zeile für Zeile.
+Manim-Animationen (freiwillig): der Rechenweg jedes Ergebnisses, Schritt für Schritt.
 
 Swiss Style wie die App: Schwarz/Weiss mit einem Rot (#e60000).
 
@@ -13,8 +13,9 @@ Installation:
     (Rückfall: brew install cairo pango pkg-config ffmpeg; pip install manim)
 
 Verwendung:
-    from dmatkit.grafik.anim import job_from_dec_to_bin, render
-    pfad = render(job_from_dec_to_bin(409), progress=print)
+    import dmatkit as dk
+    from dmatkit.grafik.anim import job_from_result, render
+    pfad = render(job_from_result(dk.to_binary(409)), progress=print)
 
 Von der Kommandozeile (rendert 409 → Binär):
     python3 -m dmatkit.grafik.anim [zahl]
@@ -30,6 +31,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import textwrap
 import threading
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -42,7 +44,10 @@ QUALITIES = {
     "high": ("1920x1080", "60", "-qh"),
 }
 
-SCENE_NAMES = {"steps": "StepsScene"}
+SCENE_NAMES = {"rechenweg": "RechenwegScene"}
+
+#: Mehr Tabellenzeilen passen nicht aufs Bild; der Rest wird mit »…« angedeutet.
+MAX_TABLE_ROWS = 10
 
 
 @dataclass
@@ -61,16 +66,15 @@ class Theme:
 @dataclass
 class AnimationJob:
     """
-    Ein Rendering-Auftrag.
+    Ein Rendering-Auftrag: der Rechenweg als Folge von Bildern.
 
-    lines    — die Zeilen des Rechenwegs, in der Reihenfolge ihres Erscheinens
-    result   — die letzte Zeile, in Rot hervorgehoben ('' heisst keine)
-    title    — Überschrift
+    slides — je Bild ein dict: head, rule, detail (Text), items (Zeilen),
+             table ({header, rows, marks} oder None), final (rot hervorheben)
+    title  — Überschrift, bleibt über allen Bildern stehen
     """
-    lines: list[str] = field(default_factory=list)
-    result: str = ""
+    slides: list[dict] = field(default_factory=list)
     title: str = ""
-    scene: str = "steps"
+    scene: str = "rechenweg"
     theme: Theme = field(default_factory=Theme)
     quality: str = "low"
 
@@ -85,19 +89,46 @@ class AnimationJob:
         return AnimationJob(theme=Theme(**data.pop("theme")), **data)
 
 
-def job_from_dec_to_bin(n: int, *, theme: Theme | None = None, quality: str = "low") -> AnimationJob:
-    """Wiederholte Division durch 2 (SW1): jede Zeile n : 2 = q Rest r, unten das Ergebnis."""
-    if isinstance(n, bool) or not isinstance(n, int) or n < 0:
-        raise ValueError("n muss eine natürliche Zahl sein")
-    lines, x, bits = [], n, ""
-    while True:
-        lines.append(f"{x} : 2 = {x // 2}  Rest {x % 2}")
-        bits = str(x % 2) + bits
-        x //= 2
-        if x == 0:
-            break
-    return AnimationJob(lines=lines, result=f"{n} = {bits}₂ (Reste von unten nach oben)",
-                        title=f"{n} ins Binärsystem", theme=theme or Theme(), quality=quality)
+def job_from_result(result, *, theme: Theme | None = None, quality: str = "low",
+                    title: str = "") -> AnimationJob:
+    """
+    Baut den Auftrag aus dem Rechenweg irgendeines dmatkit-Ergebnisses
+    (`to_binary(409)`, `truth_table(...)`, `resolution(...)`, ...): ein Bild je
+    Schritt mit Regel, Erklärung, Zwischenergebnissen und Tabelle, am Ende die
+    Ergebnisgrössen in Rot.
+    """
+    from ..rechnen.render import text_any, tex_to_text
+
+    dec, digits = result.decimal, result.digits
+
+    def piece(label, obj):
+        value = text_any(obj, dec, digits)
+        return f"{tex_to_text(label)} = {value}" if label else value
+
+    slides = []
+    for i, step in enumerate(result.steps, 1):
+        table = None
+        if step.table is not None:
+            t = step.table
+            rows = [[text_any(c, dec, digits) or "·" for c in r] for r in t.rows]
+            marks = [t.marks.get(k, "") for k in range(len(rows))]
+            if len(rows) > MAX_TABLE_ROWS:
+                rows = rows[:MAX_TABLE_ROWS] + [["…"] + ["·"] * (len(t.header) - 1)]
+                marks = marks[:MAX_TABLE_ROWS] + [""]
+            table = {"header": [text_any(h, dec, digits) or "·" for h in t.header],
+                     "rows": rows, "marks": marks}
+        slides.append({"head": f"{i}. {tex_to_text(step.title)}", "rule": step.rule,
+                       "detail": tex_to_text(step.detail),
+                       "items": [piece(l, o) for l, o in step.items],
+                       "table": table, "final": False})
+    if result.highlights:
+        slides.append({"head": "Ergebnis", "rule": "", "detail": "",
+                       "items": [piece(l, o) for l, o in result.highlights],
+                       "table": None, "final": True})
+    if not slides:
+        raise ValueError("Dieses Ergebnis hat keinen Rechenweg zum Zeigen.")
+    return AnimationJob(slides=slides, title=title or tex_to_text(result.title),
+                        theme=theme or Theme(), quality=quality)
 
 
 # --------------------------------------------------------------------------
@@ -139,8 +170,8 @@ INSTALL_HINT = ("pip install manimgx   # Rendering und Videoausgabe in einem Pak
 def _build_scenes():
     """Erzeugt die Szenenklassen erst beim Aufruf, damit das Modul ohne Manim importierbar bleibt."""
     mod = importlib.import_module(engine())
-    Scene, VGroup, FadeIn, Write, DOWN, LEFT, UP = (
-        getattr(mod, n) for n in "Scene VGroup FadeIn Write DOWN LEFT UP".split())
+    Scene, VGroup, FadeIn, FadeOut, Write, DOWN, LEFT, UP = (
+        getattr(mod, n) for n in "Scene VGroup FadeIn FadeOut Write DOWN LEFT UP".split())
     font = "Noto Sans" if engine() == "manimgx" else None
 
     def Text(*args, **kw):
@@ -148,26 +179,55 @@ def _build_scenes():
             kw.setdefault("font", font)
         return mod.Text(*args, **kw)
 
-    class StepsScene(Scene):
-        """Titel, dann eine Zeile nach der anderen; das Ergebnis zuletzt in Rot."""
+    def wrap(text, width):
+        return "\n".join(textwrap.wrap(text, width) or [""])
+
+    class RechenwegScene(Scene):
+        """Titel, dann je Schritt ein Bild: Überschrift, Regel, Erklärung, Zwischenergebnisse, Tabelle."""
+
+        def grid(self, table, th):
+            rows = [table["header"]] + table["rows"]
+            marks = [""] + table["marks"]
+            cells = [[Text(c, font_size=24, color=th.muted if r == 0 else
+                           th.accent if marks[r] in ("bad", "hi") else th.text)
+                      for c in row] for r, row in enumerate(rows)]
+            widths = [max(row[i].width for row in cells) + 0.5 for i in range(len(rows[0]))]
+            g = VGroup()
+            for r, row in enumerate(cells):
+                x = 0.0
+                for i, c in enumerate(row):
+                    c.move_to([x + widths[i] / 2, -r * 0.42, 0])
+                    x += widths[i]
+                    g.add(c)
+            return g
 
         def construct(self):
             job = AnimationJob.from_json(os.environ["DMATKIT_JOB"])
             th = job.theme
             self.camera.background_color = th.background
-            title = Text(job.title, font_size=40, color=th.text).to_edge(UP)
-            self.play(Write(title), run_time=0.8)
-            rows = VGroup(*[Text(s, font_size=32, color=th.text) for s in job.lines])
-            rows.arrange(DOWN, aligned_edge=LEFT, buff=0.3).next_to(title, DOWN, buff=0.6)
-            for row in rows:
-                self.play(FadeIn(row, shift=DOWN * 0.15), run_time=0.5)
-            if job.result:
-                res = Text(job.result, font_size=36, color=th.accent)
-                res.next_to(rows, DOWN, buff=0.5).align_to(rows, LEFT)
-                self.play(Write(res), run_time=1.0)
-            self.wait(1.5)
+            title = Text(job.title, font_size=36, color=th.text).to_edge(UP)
+            self.play(Write(title), run_time=0.6)
+            for n, s in enumerate(job.slides):
+                parts = [Text(s["head"], font_size=34, color=th.accent if s["final"] else th.text)]
+                if s["rule"]:
+                    parts.append(Text("Regel: " + s["rule"], font_size=24, color=th.muted))
+                if s["detail"]:
+                    parts.append(Text(wrap(s["detail"], 80), font_size=26, color=th.muted))
+                parts += [Text(wrap(it, 64), font_size=30, color=th.accent if s["final"] else th.text)
+                          for it in s["items"]]
+                if s["table"]:
+                    parts.append(self.grid(s["table"], th))
+                group = VGroup(*parts).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+                group.scale(min(1.0, 12.4 / group.width, 5.6 / group.height))
+                group.next_to(title, DOWN, buff=0.5).to_edge(LEFT, buff=0.7)
+                for part in parts:
+                    self.play(FadeIn(part), run_time=0.4)
+                self.wait(1.0 + 0.15 * len(parts))
+                if n < len(job.slides) - 1:
+                    self.play(FadeOut(group), run_time=0.3)
+            self.wait(2.0)
 
-    return {"steps": StepsScene}
+    return {"rechenweg": RechenwegScene}
 
 
 # --------------------------------------------------------------------------
@@ -238,7 +298,7 @@ def render(job: AnimationJob, *, progress: Callable[[int, str], None] | None = N
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
     # Die Engine zählt je Animation von 0 bis 100; für einen Balken, der nicht
     # zurückspringt, zählen wir die abgeschlossenen Animationen mit.
-    expected = len(job.lines) + 3
+    expected = len(job.slides) * 5 + 2
     log: list[str] = []
     done = last = 0
     timed_out = threading.Event()
@@ -292,5 +352,7 @@ if __name__ == "__main__":
         print(_why)
         print(_mod.INSTALL_HINT)
         sys.exit(1)
-    print("Fertig:", _mod.render(_mod.job_from_dec_to_bin(int(sys.argv[1]) if len(sys.argv) > 1 else 409),
+    _dk = importlib.import_module(_mod.__name__.rsplit(".grafik", 1)[0])
+    _n = int(sys.argv[1]) if len(sys.argv) > 1 else 409
+    print("Fertig:", _mod.render(_mod.job_from_result(_dk.to_binary(_n)),
                                  progress=lambda p, t: print(f"{p:3d}%  {t}")))
