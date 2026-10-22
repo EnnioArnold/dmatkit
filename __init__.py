@@ -2,8 +2,8 @@
 """
 dmatkit — Diskrete Mathematik für Datenstrukturen und Algorithmen, mit Rechenweg.
 
-Gebaut zum Modul DMATH-ALGO der HSLU (Semesterwochen 1 bis 5: Datentypen,
-Aussagenlogik, Prädikatenlogik, Beweiskalkül, Analyse von Algorithmen).
+Gebaut zum Modul DMATH-ALGO der HSLU (Semesterwochen 1 bis 6: Datentypen,
+Aussagenlogik, Prädikatenlogik, Beweiskalkül, Analyse von Algorithmen, Rekursion).
 Jedes Verfahren zeigt den Rechenweg so, wie er in der Prüfung auf dem Papier
 stünde, und nennt die angewandte Regel.
 
@@ -23,6 +23,9 @@ Kurzübersicht
     dk.resolution(["A -> B", "B -> C"], "A -> C")               # SW4
     dk.count_steps("decToBin", x=25)                            # SW5
     dk.max_input_size("n**2", time_limit_s=60)                  # SW5
+    dk.recursion_tree("mergeSort", [4, 6, 5, 1, 7, 4, 3, 1])    # SW6
+    dk.master_theorem(2, 2, 1)                                  # SW6: Θ(n log n)
+    dk.solve_recurrence([6, -9], 0, {0: 1, 1: 6})               # SW6
 
 Jedes Ergebnis zeigt sich im Notebook von selbst. `.latex()` liefert den
 Rechenweg zum Einfügen in eine Abgabe, `.show()` zeigt ihn, und für die
@@ -39,7 +42,7 @@ import importlib as _il
 import sys as _sys
 
 from .rechnen import (algorithmen, aussagenlogik, core, datentypen, kalkuel,
-                      praedikate, render)
+                      praedikate, rekursion, render)
 from .rechnen.core import (Formula, Var, Const, Not, And, Or, Xor, Implies, Iff,
                            TRUE, FALSE, parse, big_and, big_or, flatten, bit,
                            assignments, truth_vector, models, is_tautology,
@@ -48,7 +51,7 @@ from .rechnen.render import Result, Step, Table, show_tex, tex_to_text
 
 # Die öffentlichen Namen jeder Semesterwoche. Bei Doppelungen gewinnt SW4
 # (entails liefert ein Ergebnis mit Rechenweg; bool(r) ist die Antwort).
-for _mod in (datentypen, aussagenlogik, praedikate, kalkuel, algorithmen):
+for _mod in (datentypen, aussagenlogik, praedikate, kalkuel, algorithmen, rekursion):
     for _name in _mod.__all__:
         if _mod is algorithmen and _name in ("classify", "parse_term"):
             continue
@@ -59,7 +62,7 @@ del _mod, _name
 
 from .grafik.plots import (COLORS, has_plotly, plot_bits, plot_connectives,   # noqa: E402
                            plot_entailment, plot_growth, plot_halving,
-                           plot_quantifier, plot_resolution, plot_steps,
+                           plot_quantifier, plot_recursion_tree, plot_resolution, plot_steps,
                            plot_syntax_tree, plot_truth_table, plotly_growth)
 
 __version__ = "0.1.0"
@@ -71,6 +74,7 @@ WEEKS = {
     3: ("Prädikatenlogik", praedikate),
     4: ("Beweiskalkül", kalkuel),
     5: ("Analyse von Algorithmen", algorithmen),
+    6: ("Rekursive Algorithmen", rekursion),
 }
 
 
@@ -90,7 +94,7 @@ def info() -> str:
     lines += ["", "Zeichnen:",
               "  plot_syntax_tree, plot_truth_table, plot_connectives, plot_entailment,",
               "  plot_resolution, plot_bits, plot_quantifier, plot_growth, plot_steps,",
-              "  plot_halving, plotly_growth",
+              "  plot_halving, plot_recursion_tree, plotly_growth",
               f"  Plotly für Interaktives: {'vorhanden' if has_plotly() else 'fehlt'}",
               "", "Jedes Ergebnis kennt .latex(), .show() und (wo sinnvoll) .figure()."]
     return "\n".join(lines)
@@ -103,6 +107,6 @@ for _alias, _real in (("plots", "grafik.plots"), ("exercises", "aufgaben.exercis
     _sys.modules[f"{__name__}.{_alias}"] = _m
     globals()[_alias] = _m
 for _alias in ("core", "render", "datentypen", "aussagenlogik", "praedikate", "kalkuel",
-               "algorithmen"):
+               "algorithmen", "rekursion"):
     _sys.modules[f"{__name__}.{_alias}"] = globals()[_alias]
 del _il, _sys, _alias, _real, _m
