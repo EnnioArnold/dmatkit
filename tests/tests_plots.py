@@ -20,7 +20,7 @@ from matplotlib.figure import Figure  # noqa: E402
 from dmatkit.grafik import plots as P  # noqa: E402
 from dmatkit.grafik.plots import (has_plotly, plot_bits, plot_connectives,  # noqa: E402
                                   plot_entailment, plot_growth, plot_halving,
-                                  plot_quantifier, plot_resolution, plot_steps,
+                                  plot_quantifier, plot_recursion_tree, plot_resolution, plot_steps,
                                   plot_syntax_tree, plot_truth_table, plotly_growth)
 from dmatkit.rechnen.core import big_and, parse  # noqa: E402
 
@@ -316,6 +316,19 @@ def test_halving():
     check(raises(ValueError, plot_halving, "8"))
     check(raises(ValueError, plot_halving, 2 ** 64))
     check(raises(ValueError, plot_halving, True))
+
+
+def test_recursion_tree():
+    from dmatkit.rechnen.rekursion import recursion_tree
+    r = recursion_tree("mergeSort", [4, 6, 5, 1, 7, 4, 3, 1])
+    _fig(plot_recursion_tree(r.root), "rekursionsbaum_mergesort")
+    _fig(plot_recursion_tree(r.root, values=True, dark=True))
+    _fig(plot_recursion_tree(recursion_tree("summe", 5).root, title="eigener Titel"))
+    _fig(plot_recursion_tree(recursion_tree("hanoi", 4).root, values=True))
+    check(r.figure().axes and r.figure(values=True).axes)
+    check("Rekursionsbaum  (15 Aufrufe)" in [t.get_text() for t in plot_recursion_tree(r.root).axes[0].texts])
+    check(raises(ValueError, plot_recursion_tree, None))
+    check(raises(ValueError, plot_recursion_tree, "summe(5)"))
 
 
 def test_plotly():

@@ -21,6 +21,7 @@ Die Funktionen nehmen Formeln, Zahlen und Listen — keine Result-Objekte:
     plot_growth({"n": "n", "n log n": "n*log(n,2)", "2^n": "2^n"}, n_max=20, log=True)
     plot_steps([1, 2, 4, 8], [3, 7, 15, 31], fit="4*n-1")
     plot_halving(100)
+    plot_recursion_tree(recursion_tree("mergeSort", [4, 6, 5, 1]).root, values=True)
 
 Plotly gibt es zusätzlich für die interaktive Variante (`plotly_growth`); fehlt
 es, meldet nur diese eine Funktion es klar.
@@ -47,7 +48,7 @@ from ..rechnen.core import (Const, Formula, Var, assignments, big_and, bit,
 __all__ = [
     "plot_syntax_tree", "plot_truth_table", "plot_connectives", "plot_entailment",
     "plot_resolution", "plot_bits", "plot_quantifier", "plot_growth",
-    "plot_steps", "plot_halving", "has_plotly", "plotly_growth", "COLORS",
+    "plot_steps", "plot_halving", "plot_recursion_tree", "has_plotly", "plotly_growth", "COLORS",
 ]
 
 # Swiss Style wie die App: Schwarz/Weiss, ein Rot (#e60000), Grautöne.
@@ -1736,6 +1737,36 @@ def plot_halving(x, *, dark: bool = False, figsize=None, title=None):
         ttl = (f"x = {x}:  ⌊log₂ {x}⌋ + 1 = {k} Durchläufe" if title is None else title)
         ax.set_title(_esc(ttl), loc="left", fontsize=12, fontweight="bold")
         return fig
+
+
+def plot_recursion_tree(root, *, values: bool = False, dark: bool = False, figsize=None, title=None):
+    """
+    Rekursionsbaum: jeder Aufruf ein Knoten, die rekursiven Aufrufe darunter (Serie 6).
+
+    `root`: ein Objekt mit `.label` und `.children` — in der Regel `recursion_tree(...).root`
+    (jeder Knoten hat zusätzlich `.value`, die Rückgabe). Mit `values=True` steht an jedem Knoten
+    »Aufruf → Rückgabe«.
+
+        plot_recursion_tree(recursion_tree("summe", 5).root)
+    """
+    if root is None or not hasattr(root, "label"):
+        raise ValueError("plot_recursion_tree: erwartet die Wurzel eines Rekursionsbaums (Objekt mit .label)")
+
+    class _N:
+        def __init__(self, node):
+            self.label = (f"{node.label} → {node.value}" if values and getattr(node, "value", None) is not None
+                          else str(node.label))
+            self.children = [_N(k) for k in (getattr(node, "children", None) or ())]
+
+    proxy = _N(root)
+    n = 0
+    stack = [proxy]
+    while stack:
+        cur = stack.pop()
+        n += 1
+        stack.extend(cur.children)
+    auto = f"Rekursionsbaum  ({n} Aufrufe)"
+    return plot_syntax_tree(proxy, dark=dark, figsize=figsize, title=auto if title is None else title)
 
 
 # ==========================================================================
