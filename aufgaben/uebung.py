@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Selbst programmieren: Gerüste und Prüfstände für die Algorithmen der Serien 1 bis 5.
+Selbst programmieren: Gerüste und Prüfstände für die Algorithmen der Serien 1 bis 6.
 
 Wie bei lialkit steht hier keine Lösung. Du schreibst die Funktion selbst, rufst `pruefe_...` damit auf
 und siehst sofort, ob sie an den Beispielen der Serien und an den Randfällen besteht, die gern
@@ -41,7 +41,7 @@ __all__ = [
     "VORLAGEN", "vorlage", "namen", "Fall", "Pruefung",
     "pruefe_dec_to_bin", "pruefe_binaer_zu_dezimal", "pruefe_forall", "pruefe_exists", "pruefe_hat_duplikate",
     "pruefe_palindrom", "pruefe_wahrheitstabelle", "pruefe_folgerung", "pruefe_resolvente",
-    "pruefe_lineare_suche", "pruefe_selection_sort",
+    "pruefe_lineare_suche", "pruefe_selection_sort", "pruefe_merge_sort", "pruefe_hanoi",
     "pruefe_klassifikation", "pruefe_potenzmenge", "pruefe_dezimal_zu_bruch", "pruefe_binaer_nachkomma",
 ]
 
@@ -151,6 +151,27 @@ def mein_selection_sort(a):
             pass
         # TODO: Elemente an Position i und min_index tauschen
     return a
+''',
+    "mein_merge_sort": '''
+def mein_merge_sort(a):
+    """Sortiert die Liste a aufsteigend mit mergeSort (Serie 6) und gibt eine NEUE Liste zurück; a bleibt unverändert."""
+    if len(a) <= 1:
+        return list(a)           # Basisfall: eine Liste der Länge 1 ist schon sortiert
+    mitte = len(a) // 2
+    # TODO: beide Hälften rekursiv sortieren
+    # TODO: die sortierten Hälften zu einer sortierten Liste verschmelzen (merge): immer das kleinere vordere Element nehmen
+    pass
+''',
+    "meine_hanoi": '''
+def meine_hanoi(n, start, ziel, hilf):
+    """Türme von Hanoi (Serie 6): Liste der Züge (scheibe, von, nach), um n Scheiben von start nach ziel zu bringen.
+    Scheibe 1 ist die kleinste. Es sind 2**n - 1 Züge."""
+    if n == 1:
+        return [(1, start, ziel)]
+    # TODO: n-1 Scheiben von start auf den Hilfspfosten (rekursiv)
+    # TODO: die grösste Scheibe n von start nach ziel
+    # TODO: n-1 Scheiben vom Hilfspfosten aufs Ziel (rekursiv)
+    return []
 ''',
     "meine_klassifikation": '''
 def meine_klassifikation(f_func, n_vars):
@@ -824,6 +845,79 @@ def pruefe_selection_sort(funktion: Callable, ausfuehrlich: bool = True, ausgabe
         _lauf(p, funktion, name, (a,), a, pruefer, h, mutation=False)
     p.hinweise += _quelle_hinweis(funktion, {"sorted(": "sorted() ist die fertige Lösung.", ".sort(": "list.sort() ist die fertige Lösung.",
                                               "min(": "min() erspart die innere Schleife. In der Serie ist sie Teil der Zählung."})
+    return _abschluss(p, ausgabe, ausfuehrlich)
+
+
+# ==========================================================================
+# SW6: Rekursive Algorithmen
+# ==========================================================================
+def pruefe_merge_sort(funktion: Callable, ausfuehrlich: bool = True, ausgabe: bool | None = None) -> Pruefung:
+    """Prüft `mein_merge_sort(a)`: gibt eine neue, aufsteigend sortierte Liste zurück (Serie 6, Aufgabe 2)."""
+    p = Pruefung("mergeSort")
+    rng = random.Random(6)
+
+    def pruefer(ist, soll):
+        if ist is None:
+            return "Es wurde nichts zurückgegeben. mergeSort gibt die sortierte Liste mit return zurück."
+        if not isinstance(ist, list):
+            return f"Falscher Rückgabetyp: erwartet list, erhalten {_tn(ist)}."
+        if sorted(ist, key=repr) != sorted(soll, key=repr):
+            return "Es fehlen oder es kommen Elemente dazu (sortiert wird nur umgeordnet, nichts geht verloren)."
+        if ist != sorted(soll):
+            return "Die Liste ist nicht aufsteigend sortiert."
+        return None
+    for name, a, h in [
+        ("ein Element", [4], "Basisfall: Länge 1"), ("zwei, falsch herum", [2, 1], "merge muss auch zwei Einzelelemente ordnen"),
+        ("zwei, richtig", [1, 2], ""), ("Serie 6, Aufgabe 2", [4, 6, 5, 1, 7, 4, 3, 1], "Liste der Serie, 8 Elemente"),
+        ("ungerade Länge", [3, 1, 2], "Halbieren mit len(A)//2: links 1, rechts 2 Elemente"),
+        ("schon sortiert", [1, 2, 3, 4, 5], ""), ("absteigend", [5, 4, 3, 2, 1], ""),
+        ("doppelte Werte", [3, 2, 1, 1, 4, 4, 2, 3, 1], "gleiche Werte nicht verlieren"),
+        ("negative Zahlen", [0, -3, 5, -1, -3], ""), ("alle gleich", [7, 7, 7], ""),
+        ("zufällig, 50 Werte", [rng.randint(-50, 50) for _ in range(50)], ""),
+    ]:
+        _lauf(p, funktion, name, (a,), a, pruefer, h)
+    p.hinweise += _quelle_hinweis(funktion, {"sorted(": "sorted() ist die fertige Lösung.", ".sort(": "list.sort() ist die fertige Lösung.",
+                                              "heapq": "heapq.merge() ist die fertige Lösung für merge."})
+    p.infos.append("Erwartet: eine neue Liste; die übergebene Liste darf nicht verändert werden. Aufwand Θ(n log n).")
+    return _abschluss(p, ausgabe, ausfuehrlich)
+
+
+def pruefe_hanoi(funktion: Callable, ausfuehrlich: bool = True, ausgabe: bool | None = None) -> Pruefung:
+    """
+    Prüft `meine_hanoi(n, start, ziel, hilf)`: Liste der Züge (scheibe, von, nach); Scheibe 1 ist die kleinste.
+    Die Züge werden nach den Spielregeln nachgespielt (Serie 6, Aufgabe 3).
+    """
+    p = Pruefung("Türme von Hanoi")
+
+    def pruefer(ist, soll):
+        n, start, ziel, hilf = soll
+        if not isinstance(ist, (list, tuple)):
+            return f"Falscher Rückgabetyp: erwartet eine Liste von Zügen, erhalten {_tn(ist)}."
+        stab = {start: list(range(n, 0, -1)), ziel: [], hilf: []}
+        for i, zug in enumerate(ist, 1):
+            if not isinstance(zug, (list, tuple)) or len(zug) != 3:
+                return f"Zug {i} ist kein Tripel (scheibe, von, nach): {_kurz(zug, 30)}."
+            d, von, nach = zug
+            if von not in stab or nach not in stab or von == nach:
+                return f"Zug {i}: unbekannter Pfosten oder von = nach ({_kurz(zug, 30)})."
+            if not stab[von]:
+                return f"Zug {i}: auf Pfosten {von} liegt keine Scheibe."
+            if stab[von][-1] != d:
+                return f"Zug {i}: Scheibe {d} liegt nicht oben auf {von} (oben liegt {stab[von][-1]})."
+            if stab[nach] and stab[nach][-1] < d:
+                return f"Zug {i}: eine grössere Scheibe ({d}) darf nie auf eine kleinere ({stab[nach][-1]})."
+            stab[nach].append(stab[von].pop())
+        if stab[ziel] != list(range(n, 0, -1)):
+            return f"Am Ende liegt nicht der ganze Turm auf {ziel}."
+        if len(ist) != 2 ** n - 1:
+            return f"Der Turm liegt am Ziel, aber mit {len(ist)} statt der kürzesten {2 ** n - 1} = 2ⁿ − 1 Zügen."
+        return None
+    for n, start, ziel, hilf, h in [
+        (1, "B", "C", "A", "eine Scheibe: ein Zug"), (2, "B", "C", "A", "3 Züge: kleine zur Seite, grosse ans Ziel, kleine darauf"),
+        (3, "B", "C", "A", "7 Züge, wie in der Vorlesung"), (4, "B", "C", "A", "15 Züge"),
+        (3, "A", "B", "C", "andere Pfosten: Namen nicht fest einbauen"), (6, "L", "R", "M", "63 Züge")]:
+        _lauf(p, funktion, f"n = {n}, {start} → {ziel}", (n, start, ziel, hilf), (n, start, ziel, hilf), pruefer, h, details_soll=False)
+    p.infos.append("Idee: hanoi(n−1, start, hilf, ziel); Scheibe n von start nach ziel; hanoi(n−1, hilf, ziel, start).")
     return _abschluss(p, ausgabe, ausfuehrlich)
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Die Aufgaben der Übungsserien 1 bis 5 (DMATH-ALGO) — als Daten, mit Selbstkontrolle.
+Die Aufgaben der Übungsserien 1 bis 6 (DMATH-ALGO) — als Daten, mit Selbstkontrolle.
 
 Jede Aufgabe ist ein Datensatz
 
@@ -46,6 +46,7 @@ from ..rechnen import aussagenlogik as al
 from ..rechnen import datentypen as dt
 from ..rechnen import kalkuel as ka
 from ..rechnen import praedikate as pr
+from ..rechnen import rekursion as rk
 from ..rechnen.render import Result, Step, Table, text_any
 
 __all__ = ["Exercise", "Erwartung", "Bericht", "Gesamtbericht", "Sammlung", "EXERCISES",
@@ -82,6 +83,8 @@ def _gleich(ist, soll) -> bool:
     """Vergleich mit Sinn für Wahrheitswerte, Brüche, Gleitkommazahlen, Mengen und Listen."""
     if isinstance(soll, bool):
         return isinstance(ist, bool) and ist == soll
+    if isinstance(ist, bool):                        # True ist nicht 1 (siehe tests_exercises)
+        return False
     if isinstance(soll, float) or isinstance(ist, float):
         try:
             return math.isclose(float(ist), float(soll), rel_tol=1e-12, abs_tol=1e-12)
@@ -343,10 +346,10 @@ def _woche(week) -> int | None:
     else:
         m = re.fullmatch(r"\s*(?:SW|LG|S)?\s*(\d+)\s*", str(week), flags=re.I)
         if not m:
-            raise KeyError(f"Unbekannte Woche {week!r}. Gemeint ist eine Zahl von 1 bis 5 oder »SW3«.")
+            raise KeyError(f"Unbekannte Woche {week!r}. Gemeint ist eine Zahl von 1 bis 6 oder »SW3«.")
         w = int(m.group(1))
     if w not in {e.week for e in EXERCISES.values()}:
-        raise KeyError(f"Für Woche {week!r} gibt es keine Aufgaben. Vorhanden sind Wochen 1 bis 5.")
+        raise KeyError(f"Für Woche {week!r} gibt es keine Aufgaben. Vorhanden sind Wochen 1 bis 6.")
     return w
 
 
@@ -378,7 +381,7 @@ def _schluessel(id: str) -> str:
     nah = difflib.get_close_matches(low, list(_LOWER), n=4, cutoff=0.6)
     if nah:
         raise KeyError(f"Unbekannte Aufgabe {id!r}. Gemeint: {', '.join(_LOWER[n] for n in nah)}")
-    raise KeyError(f"Unbekannte Aufgabe {id!r}. `liste()` zeigt alle Schlüssel (Woche: SW1 bis SW5).")
+    raise KeyError(f"Unbekannte Aufgabe {id!r}. `liste()` zeigt alle Schlüssel (Woche: SW1 bis SW6).")
 
 
 def aufgabe(id: str) -> Exercise:
@@ -1804,6 +1807,160 @@ for _k, (_t, _f, _g, _art, _pf, _pg) in _LG5B.items():
         (lambda fn=_fn, f=_f, g=_g: fn(f, g)),
         [E("Aussage gilt", lambda r: r.holds, True, "Lerngerüst Serie 5 (b)"), _chk],
         "Zeugen x₀ und C bzw. c angeben; log(aˣ) = x·log a.", source="Lerngerüst Serie 5 (b)")
+
+
+# ==========================================================================
+# Serie 6 — Rekursive Algorithmen
+# ==========================================================================
+# In den Unterlagen steht nur die Aufgabenstellung (keine Musterlösung). Die Soll-Werte sind eigene Rechnungen,
+# unabhängig vom Modul gerechnet: Python-Rekursion und Iteration der Rekursionsbeziehung mit Brüchen.
+from fractions import Fraction as _Fr
+
+
+def _t_dc(a, b, k, n):
+    """T(n) = a·T(n/b) + n^k, T(1) = 1, für n = b^j — rein rekursiv gerechnet."""
+    return 1 if n == 1 else a * _t_dc(a, b, k, n // b) + n ** k
+
+
+def _t_iter(coeffs, f, init, n):
+    """T(n) aus T(n) = Σ cᵢ·T(n−i) + f(n) und {Index: Wert} durch Iteration (Brüche)."""
+    seq = {i: _Fr(v) for i, v in init.items()}
+    for m in range(max(seq) + 1, n + 1):
+        seq[m] = sum(_Fr(c) * seq[m - i - 1] for i, c in enumerate(coeffs)) + f(m)
+    return seq[n]
+
+
+def _t_merge(n):
+    """mergeSort mit Aufteilung ⌈n/2⌉ + ⌊n/2⌋ und merge = n Schritte (Annahme), T(1) = 1."""
+    return 1 if n == 1 else _t_merge((n + 1) // 2) + _t_merge(n // 2) + n
+
+
+def _hanoi_regeln(zuege, n, start="B", ziel="C", hilf="A"):
+    """Spielt die Züge nach: eine Scheibe pro Zug, nie gross auf klein, am Ende alles am Ziel."""
+    stab = {start: list(range(n, 0, -1)), ziel: [], hilf: []}
+    for scheibe, von, nach in zuege:
+        if not stab[von] or stab[von][-1] != scheibe or (stab[nach] and stab[nach][-1] < scheibe):
+            return False
+        stab[nach].append(stab[von].pop())
+    return stab[ziel] == list(range(n, 0, -1)) and not stab[start] and not stab[hilf]
+
+
+def _hanoi_min(n):
+    """Kürzeste Zugfolge per Breitensuche über alle Zustände (Position jeder Scheibe: 0, 1, 2)."""
+    start, ziel = (1,) * n, (2,) * n        # Scheibe i liegt auf Stab t[i]; Start Mitte (1), Ziel rechts (2)
+    dist, queue = {start: 0}, [start]
+    for st in queue:
+        if st == ziel:
+            return dist[st]
+        for d in range(n):                  # Scheibe d (0 = kleinste) darf ziehen, wenn keine kleinere auf ihrem Stab liegt
+            if any(st[e] == st[d] for e in range(d)):
+                continue
+            for t in range(3):
+                if t != st[d] and not any(st[e] == t for e in range(d)):
+                    nxt = st[:d] + (t,) + st[d + 1:]
+                    if nxt not in dist:
+                        dist[nxt] = dist[st] + 1
+                        queue.append(nxt)
+    raise AssertionError("Ziel nicht erreichbar")
+
+
+def _g_theta(k, j):
+    """Vergleichsfunktion der Θ-Klasse von T(n) = 2T(n/2) + nᵏ bei n = 2ʲ: n, n·log₂ n, n²."""
+    n = 2 ** j
+    return {0: n, 1: n * j, 2: n * n}[k]
+
+
+_A2 = [4, 6, 5, 1, 7, 4, 3, 1]
+
+_ex("SW6.1a", "Rekursive Summe, Rekursionsbaum für n = 5", "Bestimmen Sie einen rekursiven Algorithmus für die Summe der ersten n natürlichen Zahlen und zeichnen Sie den Rekursionsbaum für n = 5.",
+    lambda: rk.recursion_tree("summe", 5),
+    [E("Summe = 15", lambda r: r.value, sum(range(1, 6)), "Python sum()"),
+     E("5 Aufrufe in 5 Ebenen (summe(5) … summe(1))", lambda r: (r.calls, r.height), (5, 5), "von Hand"),
+     E("Aufrufe von oben nach unten", lambda r: [k.label for k in r.nodes], [f"summe({m})" for m in (5, 4, 3, 2, 1)], "von Hand")],
+    "summe(n) = summe(n−1) + n, Basisfall n = 1. Der Baum ist eine Kette.", source="Serie 6, Aufgabe 1")
+_ex("SW6.1b", "Rekursive Fakultät, Rekursionsbaum für n = 5", "Bestimmen Sie einen rekursiven Algorithmus für die Fakultät n! und zeichnen Sie den Rekursionsbaum für n = 5.",
+    lambda: rk.recursion_tree("fakultaet", 5),
+    [E("5! = 120", lambda r: r.value, _math.factorial(5), "math.factorial"),
+     E("5 Aufrufe in 5 Ebenen", lambda r: (r.calls, r.height), (5, 5), "von Hand"),
+     E("Rückgaben von unten: 1, 2, 6, 24, 120", lambda r: [k.value for k in reversed(r.nodes)], [1, 2, 6, 24, 120], "von Hand")],
+    "fakultaet(n) = fakultaet(n−1) · n, Basisfall n = 1.", source="Serie 6, Aufgabe 1")
+_ex("SW6.2", "mergeSort-Rekursionsbaum", "Zeichnen Sie einen Rekursionsbaum von mergeSort für A = [4, 6, 5, 1, 7, 4, 3, 1].",
+    lambda: rk.recursion_tree("mergeSort", _A2),
+    [E("sortierte Liste", lambda r: r.value, sorted(_A2), "Python sorted()"),
+     E("15 Aufrufe, 4 Ebenen (1, 2, 4, 8 Knoten)", lambda r: (r.calls, [len(lv) for lv in r.levels]), (15, [1, 2, 4, 8]), "von Hand: 2·8 − 1 Knoten"),
+     E("Blätter sind die 8 Einzelelemente", lambda r: [k.label for k in r.levels[3]], [f"[{x}]" for x in _A2], "von Hand"),
+     E("Ebene 1: beide Hälften", lambda r: [k.label for k in r.levels[1]], ["[4, 6, 5, 1]", "[7, 4, 3, 1]"], "range(len(A)//2) wie in der Serie")],
+    "Jede Liste wird in der Mitte geteilt; bei Länge 1 hört die Rekursion auf. Danach verschmilzt merge.", source="Serie 6, Aufgabe 2")
+_ex("SW6.3", "Türme von Hanoi, 3 Scheiben", "Entwickeln Sie einen rekursiven Algorithmus für die Türme von Hanoi (Turm in der Mitte, Ziel rechts) und führen Sie ihn für n = 3 aus.",
+    lambda: rk.hanoi(3),
+    [E("7 = 2³ − 1 Züge", lambda r: r.count, 2 ** 3 - 1, "von Hand"),
+     E("alle Züge regelkonform, Turm am Ziel", lambda r: _hanoi_regeln(r.moves, 3), True, "unabhängig nachgespielt"),
+     E("optimal: weniger geht nicht (Python-Breitensuche über alle Zustände)", lambda r: _hanoi_min(3), 7, "unabhängig: BFS")],
+    "hanoi(n−1, start, hilf, ziel); grösste Scheibe start → ziel; hanoi(n−1, hilf, ziel, start). Start ist hier B (Mitte), Ziel C (rechts).",
+    source="Serie 6, Aufgabe 3 (Mitschrift: »n=3 → 3 Plätze«)")
+_ex("SW6.4a", "Rekursionsbeziehung der Summe", "Bestimmen Sie für die rekursive Berechnung der Summe eine Big-Θ-Abschätzung.",
+    lambda: rk.solve_recurrence([1], 1, {1: 1}),
+    [E("T(n) = n für alle n (Iteration)", lambda r: [r.at(n) for n in range(1, 9)], [_t_iter([1], lambda m: 1, {1: 1}, n) for n in range(1, 9)], "eigene Rechnung: T(n) = T(n−1) + 1"),
+     E("linear: T(n) = n", lambda r: str(r.solution), "n", "eigene Rechnung")],
+    "Eigene Herleitung: T(n) = T(n−1) + c, T(1) = c. Die Beziehung in der PDF-Serie ist ein Bild und nicht lesbar. TODO: mit der Vorlesung abgleichen.",
+    source="Serie 6, Aufgabe 4 (Beziehung eigene Annahme, TODO)")
+_ex("SW6.4b", "Rekursionsbeziehung der Fakultät", "Bestimmen Sie für die rekursive Berechnung der Fakultät eine Big-Θ-Abschätzung.",
+    lambda: rk.solve_recurrence([1], 1, {1: 1}),
+    [E("T(n) = n (je Aufruf eine Multiplikation)", lambda r: [r.at(n) for n in range(1, 9)], list(range(1, 9)), "eigene Rechnung: T(n) = T(n−1) + 1")],
+    "Wie bei der Summe: ein Aufruf mit n−1 und konstanter Aufwand. TODO: Schrittzählung der Vorlesung abgleichen.",
+    source="Serie 6, Aufgabe 4 (Beziehung eigene Annahme, TODO)")
+for _k, (_a, _b, _kk, _th) in {"a": (2, 2, 0, "Θ(n)"), "b": (2, 2, 1, "Θ(n log n)"), "c": (2, 2, 2, "Θ(n²)")}.items():
+    _ex(f"SW6.5{_k}", f"T{_k.upper()}(n) = 2·T(n/2) + {'1' if _kk == 0 else 'n' if _kk == 1 else 'n²'}", f"Bestimmen Sie eine Big-Θ-Abschätzung für T(n) = 2·T(n/2) + {'1' if _kk == 0 else 'n' if _kk == 1 else 'n²'}, T(1) = 1.",
+        (lambda a=_a, b=_b, kk=_kk: rk.master_theorem(a, b, kk)),
+        [E(f"{_th}", lambda r: r.theta, _th, "Satz auf Seite 7 der Serie, Fall bᵏ " + ("< a" if _kk == 0 else "= a" if _kk == 1 else "> a")),
+         E("T(2^j) stimmt mit der Rekursion überein", lambda r, a=_a, b=_b, kk=_kk: all(int(v) == _t_dc(a, b, kk, m) for m, v in r.values.items()), True, "unabhängig: Python-Rekursion"),
+         E("T(n)/g(n) liegt zwischen 1 und 2 (n = 2^1 … 2^16)", lambda r, a=_a, b=_b, kk=_kk: all(1 <= _t_dc(a, b, kk, 2 ** j) / _g_theta(kk, j) <= 2 for j in range(1, 17)), True,
+           "unabhängig: Θ-Probe mit g = n, n·log₂ n bzw. n²")],
+        "Rekursionsbaum für n = 2ᵏ zeichnen: Ebene i hat 2ⁱ Knoten der Grösse n/2ⁱ.", source=f"Serie 6, Aufgabe 5 (Teil {_k}); Lösung eigen")
+_ex("SW6.6", "mergeSort ist in Θ(n log n)", "Zeigen Sie, dass mergeSort in Θ(n log n) ist (merge: c·n Schritte, Annahme).",
+    lambda: rk.master_theorem(2, 2, 1),
+    [E("Θ(n log n)", lambda r: r.theta, "Θ(n log n)", "T(n) = 2T(n/2) + n: a = 2, bᵏ = 2"),
+     E("T(2^j) = 2^j·(j + 1)", lambda r: all(int(v) == int(m) * (m.bit_length()) for m, v in r.values.items()), True, "von Hand: j + 1 Ebenen mit je n Schritten"),
+     E("genaue Rekursion mit ⌈n/2⌉ + ⌊n/2⌋: n·log₂ n ≤ T(n) ≤ 2·n·log₂ n (2 ≤ n ≤ 1000)",
+       lambda r: all(n * _math.log2(n) <= _t_merge(n) <= 2 * n * _math.log2(n) for n in range(2, 1001)), True, "unabhängig: Python-Rekursion")],
+    "Ebenen: log₂ n + 1; auf jeder Ebene werden insgesamt n Elemente verschmolzen. Annahme: merge braucht c·n Schritte (steht nicht in der Serie).",
+    source="Serie 6, Aufgabe 6; Lösung eigen")
+_F7 = {"a": (4, 3, 2, "Θ(n²)"), "b": (2, 3, 4, "Θ(n⁴)"), "c": (16, 4, 2, "Θ(n² log n)"), "d": (4, 2, 0, "Θ(n²)"), "e": (4, 4, 1, "Θ(n log n)")}
+for _k, (_a, _b, _kk, _th) in _F7.items():
+    _w = "1" if _kk == 0 else "n" if _kk == 1 else f"n{'²³⁴'[_kk - 2]}"
+    _ex(f"SW6.7{_k}", f"T(n) = {_a}·T(n/{_b}) + {_w}", f"Bestimmen Sie mit dem Satz eine Big-Θ-Abschätzung für T(n) = {_a}·T(n/{_b}) + {_w}, T(1) = 1.",
+        (lambda a=_a, b=_b, kk=_kk: rk.master_theorem(a, b, kk)),
+        [E(_th, lambda r: r.theta, _th, "Satz auf Seite 7 der Serie: bᵏ " + ("<" if _b ** _kk < _a else "=" if _b ** _kk == _a else ">") + " a"),
+         E("Fall nach bᵏ ⋚ a", lambda r, a=_a, b=_b, kk=_kk: r.case, (1 if _b ** _kk < _a else 2 if _b ** _kk == _a else 3), "von Hand"),
+         E("T(b^j) stimmt mit der Rekursion überein", lambda r, a=_a, b=_b, kk=_kk: all(int(v) == _t_dc(a, b, kk, m) for m, v in r.values.items()), True, "unabhängig: Python-Rekursion")],
+        "b^k mit a vergleichen: kleiner → Θ(n^(log_b a)), gleich → Θ(n^k log n), grösser → Θ(n^k).", source=f"Serie 6, Aufgabe 7{_k}; Lösung eigen")
+_F8 = {  # Teil: (c, F, Anfangswerte, Formel, Text der Beziehung, Text der Lösung)
+    "a": ([5], 0, {0: 4}, lambda n: 4 * 5 ** n, "T(n) = 5·T(n−1), T(0) = 4", "T(n) = 4·5ⁿ"),
+    "b": ([6, -9], 0, {0: 1, 1: 6}, lambda n: (1 + n) * 3 ** n, "T(n) = 6·T(n−1) − 9·T(n−2), T(0) = 1, T(1) = 6", "T(n) = (1 + n)·3ⁿ (doppelte Wurzel 3)"),
+    "c": ([1, 2], 0, {0: 2, 1: 7}, lambda n: 3 * 2 ** n - (-1) ** n, "T(n) = T(n−1) + 2·T(n−2), T(0) = 2, T(1) = 7", "T(n) = 3·2ⁿ − (−1)ⁿ (Wurzeln 2 und −1)"),
+    "d": ([3], "2**n", {1: 3}, lambda n: _Fr(7, 3) * 3 ** n - 2 ** (n + 1), "T(n) = 3·T(n−1) + 2ⁿ, T(1) = 3", "T(n) = 7/3·3ⁿ − 2ⁿ⁺¹"),
+    "e": ([5, -6], "7*n", {0: 1, 1: 15}, lambda n: -33 * 2 ** n + _Fr(87, 4) * 3 ** n + _Fr(7, 2) * n + _Fr(49, 4),
+          "T(n) = 5·T(n−1) − 6·T(n−2) + 7n, T(0) = 1, T(1) = 15", "T(n) = −33·2ⁿ + 87/4·3ⁿ + 7n/2 + 49/4"),
+}
+_FN8 = {"a": lambda n: 0, "b": lambda n: 0, "c": lambda n: 0, "d": lambda n: 2 ** n, "e": lambda n: 7 * n}
+for _k, (_c, _f, _i, _fn, _rec, _txt) in _F8.items():
+    _ex(f"SW6.8{_k}", f"Rekursionsbeziehung: {_rec}", f"Bestimmen Sie die Auflösung der Rekursionsbeziehung {_rec}.",
+        (lambda c=_c, f=_f, i=_i: rk.solve_recurrence(c, f, i)),
+        [E("Formel stimmt mit Iteration der Rekursion überein (bis n = 12)", lambda r, c=_c, i=_i, k=_k: all(_Fr(str(r.at(n))) == _t_iter(c, _FN8[k], i, n) for n in range(max(i), 13)), True, "unabhängig: Iteration mit Brüchen"),
+         E("Formel von Hand hergeleitet", lambda r, fn=_fn, i=_i: all(_Fr(str(r.at(n))) == _Fr(fn(n)) for n in range(min(i), 13)), True, _txt)],
+        "Charakteristische Gleichung (Satz 1), bei inhomogen Ansatz für Tₚ (Satz 2), Konstanten aus den Anfangswerten.", source=f"Serie 6, Aufgabe 8{_k}; Lösung eigen: {_txt}")
+
+# -- Beispiele aus der Vorlesung / Mitschrift -------------------------------------------------------------------------------------------
+_ex("SW6.B1", "mergeSort: Rekursionsbaum mit Rückgabewerten", "Wie kommt die sortierte Liste im Baum zustande?",
+    lambda: rk.recursion_tree("mergeSort", [4, 6, 5, 1]),
+    [E("Wurzel gibt [1, 4, 5, 6] zurück", lambda r: r.value, [1, 4, 5, 6], "Python sorted()"),
+     E("7 Aufrufe", lambda r: r.calls, 7, "von Hand: 1 + 2 + 4")],
+    "Base Case: Länge 1. Dann von unten nach oben verschmelzen.", source="Serie 6, Aufgabe 2 (Mitschrift: »Base Case = hat die Liste die Länge 1?«)")
+_ex("SW6.B2", "Hanoi: Zuganzahl 2ⁿ − 1", "Wie viele Züge braucht der Turm mit n Scheiben?",
+    lambda: rk.solve_recurrence([2], 1, {1: 1}),
+    [E("T(n) = 2ⁿ − 1 (Iteration)", lambda r: [r.at(n) for n in range(1, 11)], [2 ** n - 1 for n in range(1, 11)], "von Hand: T(n) = 2T(n−1) + 1"),
+     E("n = 64 (Legende der Serie): 2⁶⁴ − 1 Züge", lambda r: r.at(64), 2 ** 64 - 1, "von Hand")],
+    "T(n) = 2·T(n−1) + 1: die n−1 Scheiben zweimal, dazu ein Zug.", source="Serie 6, Aufgabe 3 (Zuganzahl; Rekursionsbeziehung eigene Herleitung)")
 
 
 # ==========================================================================

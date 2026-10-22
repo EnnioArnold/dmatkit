@@ -511,9 +511,9 @@ def f_nk_ohne_periode(z, n):            # Fehler: bricht nach 8 Stellen ab
 # ==========================================================================
 # 1. Vorlagen
 # ==========================================================================
-ok(len(u.VORLAGEN) >= 11 and set(u.namen()) == set(u.VORLAGEN))
+ok(len(u.VORLAGEN) >= 13 and set(u.namen()) == set(u.VORLAGEN))
 for nm in ("meine_dec_to_bin", "meine_binaer_zu_dezimal", "mein_forall", "mein_exists", "meine_hat_duplikate", "mein_palindrom",
-           "meine_wahrheitstabelle", "meine_folgerung", "meine_resolvente", "meine_lineare_suche", "mein_selection_sort"):
+           "meine_wahrheitstabelle", "meine_folgerung", "meine_resolvente", "meine_lineare_suche", "mein_selection_sort", "mein_merge_sort", "meine_hanoi"):
     ok(nm in u.VORLAGEN, nm)
     src = u.vorlage(nm)
     ok(src.startswith("def " + nm), nm)
@@ -535,6 +535,7 @@ for nm, pr in [("meine_dec_to_bin", u.pruefe_dec_to_bin), ("meine_binaer_zu_dezi
                ("mein_palindrom", u.pruefe_palindrom), ("meine_wahrheitstabelle", u.pruefe_wahrheitstabelle),
                ("meine_folgerung", u.pruefe_folgerung), ("meine_resolvente", u.pruefe_resolvente),
                ("meine_lineare_suche", u.pruefe_lineare_suche), ("mein_selection_sort", u.pruefe_selection_sort),
+               ("mein_merge_sort", u.pruefe_merge_sort), ("meine_hanoi", u.pruefe_hanoi),
                ("meine_klassifikation", u.pruefe_klassifikation), ("meine_potenzmenge", u.pruefe_potenzmenge),
                ("meine_dezimal_zu_bruch", u.pruefe_dezimal_zu_bruch), ("meine_binaer_nachkomma", u.pruefe_binaer_nachkomma)]:
     ns = {}
@@ -667,6 +668,70 @@ schlecht(u.pruefe_selection_sort, f_sel_absteigend, "absteigend")
 schlecht(u.pruefe_selection_sort, f_sel_tuple, "Tupel statt Liste")
 schlecht(u.pruefe_selection_sort, lambda a: a, "tut nichts")
 schlecht(u.pruefe_selection_sort, lambda a: [], "leere Liste statt sortierte")
+
+# SW6: mergeSort und Hanoi (Referenzen nur hier im Test)
+def r_ms(a):
+    if len(a) <= 1:
+        return list(a)
+    m = len(a) // 2
+    links, rechts, out = r_ms(a[:m]), r_ms(a[m:]), []
+    while links and rechts:
+        out.append(links.pop(0) if links[0] <= rechts[0] else rechts.pop(0))
+    return out + links + rechts
+
+
+def f_ms_ohne_rest(a):                  # Fehler: Rest einer Hälfte geht verloren
+    if len(a) <= 1:
+        return list(a)
+    m = len(a) // 2
+    links, rechts, out = f_ms_ohne_rest(a[:m]), f_ms_ohne_rest(a[m:]), []
+    while links and rechts:
+        out.append(links.pop(0) if links[0] <= rechts[0] else rechts.pop(0))
+    return out
+
+
+def f_ms_mutiert(a):                    # Fehler: sortiert die Eingabe selbst
+    a.sort()
+    return a
+
+
+def f_ms_absteigend(a):
+    return sorted(a, reverse=True)
+
+
+def r_hn(n, s_, z, h):
+    return [(1, s_, z)] if n == 1 else r_hn(n - 1, s_, h, z) + [(n, s_, z)] + r_hn(n - 1, h, z, s_)
+
+
+def f_hn_gross_auf_klein(n, s_, z, h):  # Fehler: Reihenfolge der drei Teile vertauscht
+    return [(1, s_, z)] if n == 1 else [(n, s_, z)] + f_hn_gross_auf_klein(n - 1, s_, h, z) + f_hn_gross_auf_klein(n - 1, h, z, s_)
+
+
+def f_hn_fest(n, s_, z, h):             # Fehler: Pfostennamen fest eingebaut
+    return r_hn(n, "B", "C", "A")
+
+
+gut(u.pruefe_merge_sort, r_ms, "mergeSort")
+gut(u.pruefe_merge_sort, lambda a: sorted(a), "mergeSort mit sorted (mit Hinweis)")
+schlecht(u.pruefe_merge_sort, f_ms_ohne_rest, "Rest verloren")
+schlecht(u.pruefe_merge_sort, f_ms_mutiert, "verändert die Eingabe")
+schlecht(u.pruefe_merge_sort, f_ms_absteigend, "absteigend")
+schlecht(u.pruefe_merge_sort, lambda a: None, "kein return")
+schlecht(u.pruefe_merge_sort, lambda a: tuple(sorted(a)), "Tupel")
+schlecht(u.pruefe_merge_sort, lambda a: a[:1], "Elemente gehen verloren")
+gut(u.pruefe_hanoi, r_hn, "Hanoi")
+gut(u.pruefe_hanoi, lambda n, s_, z, h: [list(x) for x in r_hn(n, s_, z, h)], "Hanoi mit Listen als Zügen")
+schlecht(u.pruefe_hanoi, f_hn_gross_auf_klein, "falsche Reihenfolge")
+schlecht(u.pruefe_hanoi, f_hn_fest, "feste Pfostennamen", "A → B")
+schlecht(u.pruefe_hanoi, lambda n, s_, z, h: r_hn(n, s_, z, h)[:-1], "letzter Zug fehlt")
+schlecht(u.pruefe_hanoi, lambda n, s_, z, h: r_hn(n, s_, z, h) + [(1, z, s_)], "ein Zug zu viel")
+schlecht(u.pruefe_hanoi, lambda n, s_, z, h: [(d, a, b) for d, a, b in r_hn(n, s_, z, h)][::-1], "rückwärts")
+schlecht(u.pruefe_hanoi, lambda n, s_, z, h: [(1, s_)], "kein Tripel")
+schlecht(u.pruefe_hanoi, lambda n, s_, z, h: "Zug", "Text statt Liste")
+schlecht(u.pruefe_hanoi, lambda n, s_, z, h: [(1, s_, s_)], "von = nach")
+p = u.pruefe_hanoi(r_hn, ausgabe=False)
+ok(p.gesamt == 6 and "kürzesten" not in p.bericht())
+ok(len(r_hn(4, "x", "y", "z")) == 15)
 
 # Extras
 gut(u.pruefe_potenzmenge, r_pot, "Potenzmenge")

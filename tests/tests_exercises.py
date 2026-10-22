@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests für dmatkit.aufgaben.exercises: python3 tests/tests_exercises.py
 
-Jede Aufgabe der Serien 1 bis 5, des Lerngerüsts und der Vorlesungsbeispiele muss laufen und mit dem Soll
+Jede Aufgabe der Serien 1 bis 6, des Lerngerüsts und der Vorlesungsbeispiele muss laufen und mit dem Soll
 übereinstimmen. Die Soll-Werte stammen aus den Serien, der Mitschrift, Python-Builtins oder Brute-Force,
 nie aus der Ausgabe von dmatkit selbst. Dieser Test rechnet die wichtigsten Werte noch einmal unabhängig nach.
 """
@@ -50,7 +50,7 @@ for k in ex.EXERCISES:
 # ==========================================================================
 # 2. Aufbau und Vollständigkeit
 # ==========================================================================
-wochen = {w: ex.liste(w) for w in range(1, 6)}
+wochen = {w: ex.liste(w) for w in range(1, 7)}
 ok(sum(len(v) for v in wochen.values()) == len(ex.EXERCISES))
 ok(all(len(v) > 0 for v in wochen.values()))
 ok(ex.liste() == list(ex.EXERCISES))
@@ -67,9 +67,9 @@ ex.liste(2)._repr_html_()
 ok(repr(ex.liste(art="Beispiel")).count("\n") >= 10)
 
 ids = list(ex.EXERCISES)
-ok(len(ids) == len(set(ids)) and all(re.fullmatch(r"(SW|LG)[1-5]\.[A-Za-z0-9]+", k) for k in ids))
+ok(len(ids) == len(set(ids)) and all(re.fullmatch(r"(SW|LG)[1-6]\.[A-Za-z0-9]+", k) for k in ids))
 for k, e in ex.EXERCISES.items():
-    ok(e.id == k and 1 <= e.week <= 5 and str(e.week) == k[2], k)
+    ok(e.id == k and 1 <= e.week <= 6 and str(e.week) == k[2], k)
     ok(isinstance(e.title, str) and len(e.title) > 3 and isinstance(e.task, str) and len(e.task) > 10, k)
     ok(callable(e.call) and len(e.expected) >= 1, k)
     ok(isinstance(e.hint, str) and e.hint != "", f"{k}: Hinweis fehlt")
@@ -79,7 +79,7 @@ for k, e in ex.EXERCISES.items():
     e._repr_html_()
     ok("erwartet" not in e.task.lower(), k)
 
-# Alle Aufgaben der Serien 1 bis 5 sind vorhanden (nach den Übungsblättern)
+# Alle Aufgaben der Serien 1 bis 6 sind vorhanden (nach den Übungsblättern)
 SOLL = {
     1: ["SW1.1a", "SW1.1b", "SW1.1c", "SW1.1d", "SW1.1e", "SW1.2", "SW1.3", "SW1.4", "SW1.5a32", "SW1.5b32", "SW1.5a64", "SW1.5b64", "SW1.6", "SW1.7a"],
     2: ["SW2.1a", "SW2.1b", "SW2.2", "SW2.3a", "SW2.3b", "SW2.4a", "SW2.4b", "SW2.5", "SW2.6", "SW2.7a", "SW2.7b", "SW2.7c", "SW2.7d", "SW2.7e"],
@@ -88,6 +88,8 @@ SOLL = {
     4: ["SW4.1", "SW4.1b", "SW4.2", "SW4.2b", "SW4.3", "SW4.3b", "SW4.4", "SW4.5", "SW4.G", "SW4.P1", "SW4.P2"],
     5: ["SW5.1a", "SW5.1b", "SW5.2a", "SW5.2b", "SW5.3", "SW5.4a", "SW5.4b", "SW5.5a", "SW5.5b", "SW5.6a", "SW5.6b", "SW5.7a", "SW5.7b",
         "SW5.8a", "SW5.8b", "SW5.8c", "SW5.8d", "SW5.8e"],
+    6: ["SW6.1a", "SW6.1b", "SW6.2", "SW6.3", "SW6.4a", "SW6.4b", "SW6.5a", "SW6.5b", "SW6.5c", "SW6.6"]
+       + [f"SW6.7{c}" for c in "abcde"] + [f"SW6.8{c}" for c in "abcde"],
 }
 for w, soll in SOLL.items():
     for k in soll:
@@ -119,7 +121,7 @@ b = ex.pruefen("SW5.1a")
 ok(b.ok and "SW5.1a" in repr(b) and "✓" in repr(b) and "<table" in b._repr_html_())
 ok("Alles grün" in repr(g))
 ok(repr(g).startswith(f"{g.gesamt} von {g.gesamt}") and "SW5:" in repr(g) and "<pre>" in g._repr_html_())
-for w in range(1, 6):
+for w in range(1, 7):
     gw = ex.alle_pruefen(w)
     ok(gw.ok and gw.gesamt == len(wochen[w]), w)
 ok(ex.alle_pruefen("SW2", "Lerngerüst").gesamt == len(ex.liste(2, "Lerngerüst")))
@@ -263,4 +265,4 @@ ok(a1 == a2 and all(v for _, v in a1))
 ok(repr(ex.loesen("SW5.1a")) == repr(ex.loesen("SW5.1a")))
 
 print(f"tests_exercises.py: {N[0]} Prüfungen bestanden, {len(ex.EXERCISES)} Aufgaben ("
-      + ", ".join(f"SW{w}: {len(wochen[w])}" for w in range(1, 6)) + ")")
+      + ", ".join(f"SW{w}: {len(wochen[w])}" for w in range(1, 7)) + ")")
