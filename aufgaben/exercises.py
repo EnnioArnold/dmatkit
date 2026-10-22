@@ -1877,38 +1877,38 @@ _ex("SW6.1a", "Rekursive Summe, Rekursionsbaum für n = 5", "Bestimmen Sie einen
     [E("Summe = 15", lambda r: r.value, sum(range(1, 6)), "Python sum()"),
      E("5 Aufrufe in 5 Ebenen (summe(5) … summe(1))", lambda r: (r.calls, r.height), (5, 5), "von Hand"),
      E("Aufrufe von oben nach unten", lambda r: [k.label for k in r.nodes], [f"summe({m})" for m in (5, 4, 3, 2, 1)], "von Hand")],
-    "summe(n) = summe(n−1) + n, Basisfall n = 1. Der Baum ist eine Kette.", source="Serie 6, Aufgabe 1")
+    "summe(n) = summe(n−1) + n, Basisfall n = 1. Der Baum ist eine Kette.", source="Serie 6, Aufgabe 1; Lösung eigen")
 _ex("SW6.1b", "Rekursive Fakultät, Rekursionsbaum für n = 5", "Bestimmen Sie einen rekursiven Algorithmus für die Fakultät n! und zeichnen Sie den Rekursionsbaum für n = 5.",
     lambda: rk.recursion_tree("fakultaet", 5),
     [E("5! = 120", lambda r: r.value, _math.factorial(5), "math.factorial"),
      E("5 Aufrufe in 5 Ebenen", lambda r: (r.calls, r.height), (5, 5), "von Hand"),
      E("Rückgaben von unten: 1, 2, 6, 24, 120", lambda r: [k.value for k in reversed(r.nodes)], [1, 2, 6, 24, 120], "von Hand")],
-    "fakultaet(n) = fakultaet(n−1) · n, Basisfall n = 1.", source="Serie 6, Aufgabe 1")
+    "fakultaet(n) = fakultaet(n−1) · n, Basisfall n = 1.", source="Serie 6, Aufgabe 1; Lösung eigen")
 _ex("SW6.2", "mergeSort-Rekursionsbaum", "Zeichnen Sie einen Rekursionsbaum von mergeSort für A = [4, 6, 5, 1, 7, 4, 3, 1].",
     lambda: rk.recursion_tree("mergeSort", _A2),
     [E("sortierte Liste", lambda r: r.value, sorted(_A2), "Python sorted()"),
      E("15 Aufrufe, 4 Ebenen (1, 2, 4, 8 Knoten)", lambda r: (r.calls, [len(lv) for lv in r.levels]), (15, [1, 2, 4, 8]), "von Hand: 2·8 − 1 Knoten"),
      E("Blätter sind die 8 Einzelelemente", lambda r: [k.label for k in r.levels[3]], [f"[{x}]" for x in _A2], "von Hand"),
      E("Ebene 1: beide Hälften", lambda r: [k.label for k in r.levels[1]], ["[4, 6, 5, 1]", "[7, 4, 3, 1]"], "range(len(A)//2) wie in der Serie")],
-    "Jede Liste wird in der Mitte geteilt; bei Länge 1 hört die Rekursion auf. Danach verschmilzt merge.", source="Serie 6, Aufgabe 2")
+    "Jede Liste wird in der Mitte geteilt; bei Länge 1 hört die Rekursion auf. Danach verschmilzt merge.", source="Serie 6, Aufgabe 2; Lösung eigen")
 _ex("SW6.3", "Türme von Hanoi, 3 Scheiben", "Entwickeln Sie einen rekursiven Algorithmus für die Türme von Hanoi (Turm in der Mitte, Ziel rechts) und führen Sie ihn für n = 3 aus.",
     lambda: rk.hanoi(3),
     [E("7 = 2³ − 1 Züge", lambda r: r.count, 2 ** 3 - 1, "von Hand"),
      E("alle Züge regelkonform, Turm am Ziel", lambda r: _hanoi_regeln(r.moves, 3), True, "unabhängig nachgespielt"),
      E("optimal: weniger geht nicht (Python-Breitensuche über alle Zustände)", lambda r: _hanoi_min(3), 7, "unabhängig: BFS")],
     "hanoi(n−1, start, hilf, ziel); grösste Scheibe start → ziel; hanoi(n−1, hilf, ziel, start). Start ist hier B (Mitte), Ziel C (rechts).",
-    source="Serie 6, Aufgabe 3 (Mitschrift: »n=3 → 3 Plätze«)")
+    source="Serie 6, Aufgabe 3 (Mitschrift: »n=3 → 3 Plätze«); Lösung eigen")
 _ex("SW6.4a", "Rekursionsbeziehung der Summe", "Bestimmen Sie für die rekursive Berechnung der Summe eine Big-Θ-Abschätzung.",
     lambda: rk.solve_recurrence([1], 1, {1: 1}),
     [E("T(n) = n für alle n (Iteration)", lambda r: [r.at(n) for n in range(1, 9)], [_t_iter([1], lambda m: 1, {1: 1}, n) for n in range(1, 9)], "eigene Rechnung: T(n) = T(n−1) + 1"),
      E("linear: T(n) = n", lambda r: str(r.solution), "n", "eigene Rechnung")],
     "Eigene Herleitung: T(n) = T(n−1) + c, T(1) = c. Die Beziehung in der PDF-Serie ist ein Bild und nicht lesbar. TODO: mit der Vorlesung abgleichen.",
-    source="Serie 6, Aufgabe 4 (Beziehung eigene Annahme, TODO)")
+    source="Serie 6, Aufgabe 4 (Beziehung eigene Annahme, TODO); Lösung eigen")
 _ex("SW6.4b", "Rekursionsbeziehung der Fakultät", "Bestimmen Sie für die rekursive Berechnung der Fakultät eine Big-Θ-Abschätzung.",
     lambda: rk.solve_recurrence([1], 1, {1: 1}),
     [E("T(n) = n (je Aufruf eine Multiplikation)", lambda r: [r.at(n) for n in range(1, 9)], list(range(1, 9)), "eigene Rechnung: T(n) = T(n−1) + 1")],
     "Wie bei der Summe: ein Aufruf mit n−1 und konstanter Aufwand. TODO: Schrittzählung der Vorlesung abgleichen.",
-    source="Serie 6, Aufgabe 4 (Beziehung eigene Annahme, TODO)")
+    source="Serie 6, Aufgabe 4 (Beziehung eigene Annahme, TODO); Lösung eigen")
 for _k, (_a, _b, _kk, _th) in {"a": (2, 2, 0, "Θ(n)"), "b": (2, 2, 1, "Θ(n log n)"), "c": (2, 2, 2, "Θ(n²)")}.items():
     _ex(f"SW6.5{_k}", f"T{_k.upper()}(n) = 2·T(n/2) + {'1' if _kk == 0 else 'n' if _kk == 1 else 'n²'}", f"Bestimmen Sie eine Big-Θ-Abschätzung für T(n) = 2·T(n/2) + {'1' if _kk == 0 else 'n' if _kk == 1 else 'n²'}, T(1) = 1.",
         (lambda a=_a, b=_b, kk=_kk: rk.master_theorem(a, b, kk)),
