@@ -2,8 +2,8 @@
 
 Diskrete Mathematik mit nachvollziehbarem Rechenweg, gebaut zum Modul
 DMATH-ALGO der HSLU (Diskrete Mathematik für Datenstrukturen und Algorithmen).
-Deckt die Semesterwochen 1 bis 5 ab: Elementare Datentypen, Aussagenlogik,
-Prädikatenlogik, Beweiskalkül und Analyse von Algorithmen. Schwesterprojekt von
+Deckt die Semesterwochen 1 bis 6 ab: Elementare Datentypen, Aussagenlogik,
+Prädikatenlogik, Beweiskalkül, Analyse von Algorithmen und rekursive Algorithmen. Schwesterprojekt von
 [lialkit](https://github.com/EnnioArnold/lialkit) (Lineare Algebra) und
 [anakit](https://github.com/EnnioArnold/Analysiskit) (Analysis).
 
@@ -53,6 +53,9 @@ dk.entails(["A -> B", "A"], "B")                             # SW4: drei Prüfme
 dk.resolution(["A -> B", "B -> C"], "A -> C")                # SW4: Resolution mit Graph
 dk.count_steps("decToBin", x=25)                             # SW5: Rechenschritte zählen
 dk.max_input_size("n**2", time_limit_s=60)                   # SW5: grösstes n in einer Minute
+dk.recursion_tree("mergeSort", [4, 6, 5, 1, 7, 4, 3, 1])     # SW6: Rekursionsbaum
+dk.master_theorem(2, 2, 1)                                   # SW6: T(n) = 2T(n/2) + n  ->  Θ(n log n)
+dk.solve_recurrence([6, -9], 0, {0: 1, 1: 6})                # SW6: T(n) = 6T(n−1) − 9T(n−2)  ->  (1 + n)·3ⁿ
 ```
 
 Formeln schreibst du wie im Unterricht: `and or not xor -> <->` oder mit
@@ -74,8 +77,9 @@ rechnen/    Rechenkern: core (Formelbaum, Parser), render (Rechenweg, Tabellen)
               praedikate     SW3  Prädikate, ∀ und ∃, Negation, Listen-Aufgaben
               kalkuel        SW4  Folgerung ⊨, Ableitung ⊢, KNF, Resolution
               algorithmen    SW5  Rechenschritte zählen, Worst Case, Landau
+              rekursion      SW6  Rekursionsbaum, Hanoi, Master-Satz, lineare Rekursionen
 grafik/     Zeichnungen (plots)
-aufgaben/   Übungsaufgaben der Serien 1–5 (exercises), Prüfstände zum Selbstprogrammieren (uebung)
+aufgaben/   Übungsaufgaben der Serien 1–6 (exercises), Prüfstände zum Selbstprogrammieren (uebung)
 docs/       Architektur-Diagramm
 tests/      ein Testskript je Modul
 ```
@@ -124,7 +128,7 @@ pip install -r requirements.txt  # einmalig
 python3 app/dmatkit_qt.py
 ```
 
-Fünf Seiten, eine je Semesterwoche. Jedes Ergebnis zeigt **Rechenweg** und
+Sechs Seiten, eine je Semesterwoche. Jedes Ergebnis zeigt **Rechenweg** und
 **Zeichnung**. Die Prüfung über Wolfram|Alpha ist optional und braucht eine
 kostenlose AppID von <https://developer.wolframalpha.com/> (Umgebungsvariable
 `WOLFRAM_APPID` oder einmalige Eingabe in der App).
@@ -136,7 +140,7 @@ Dunkelmodus ein, `plotly_growth` öffnet Wachstumskurven interaktiv.
 
 ```bash
 python3 tests/tests_datentypen.py     # ebenso aussagenlogik, praedikate, kalkuel,
-python3 tests/tests_algorithmen.py    # algorithmen, plots, exercises, uebung, app
+python3 tests/tests_algorithmen.py    # algorithmen, rekursion, plots, exercises, uebung, app
 ```
 
 ## Noch nicht enthalten
