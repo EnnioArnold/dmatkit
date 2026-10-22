@@ -2,15 +2,16 @@
 """
 dmatkit — Diskrete Mathematik mit Rechenweg, als Desktop-App im Swiss Style (Qt).
 
-Gebaut zum Modul DMATH-ALGO der HSLU (Semesterwochen 1 bis 5). Die App rechnet
+Gebaut zum Modul DMATH-ALGO der HSLU (Semesterwochen 1 bis 6). Die App rechnet
 mit demselben Paket `dmatkit` wie das Notebook; sie ist nur eine andere
-Oberfläche dafür. Fünf Seiten:
+Oberfläche dafür. Sechs Seiten:
 
     Datentypen (SW1)        Boolesche Ausdrücke, Zahlsysteme, IEEE 754, Zweierkomplement, Mengen
     Aussagenlogik (SW2)     Wahrheitstabelle, Äquivalenz, Vereinfachen, Normalformen, Syntaxbaum
     Prädikatenlogik (SW3)   ∀ und ∃ über einem Universum, Duplikate, Quantoren negieren
     Beweiskalkül (SW4)      Folgerung ⊨, Resolution, KNF-Umformung, Ableitung
     Algorithmen (SW5)       Schritte zählen, Worst Case, Wachstum, grösstes n, Landau-Symbole
+    Rekursion (SW6)         Rekursionsbaum, Hanoi, Master-Satz T(n) = a·T(n/b) + c·nᵏ, lineare Rekursionen
 
 Jede Seite zeigt ihr Ergebnis als Karte mit zwei Ansichten: Rechenweg (gesetzte
 Formeln und Tabellen) und Zeichnung. Die Prüfung mit Wolfram|Alpha ist optional
@@ -356,7 +357,7 @@ def friendly_error(exc: BaseException) -> str:
 
 
 # ==========================================================================
-# Die fünf Seiten als Daten: Felder, Rechnungen, Beispiele
+# Die sechs Seiten als Daten: Felder, Rechnungen, Beispiele
 # ==========================================================================
 #
 # Jede Seite hat eine Liste von Rechnungen (»Actions«). Jede Rechnung nennt
@@ -536,6 +537,22 @@ ALGORITHMEN = [
 ]
 
 
+REKURSION = [
+    Action("tree", "Rekursionsbaum", "Aufrufe von summe, Fakultät, mergeSort oder Türme von Hanoi als Baum, mit Rückgabewerten",
+           [F("ralg", "Algorithmus", "choice", "mergeSort", options=(("summe", "summe(n)"), ("fakultaet", "Fakultät n!"),
+                                                                   ("mergeSort", "mergeSort(Liste)"), ("hanoi", "Türme von Hanoi"))),
+            F("rarg", "Eingabe", default="4, 6, 5, 1, 7, 4, 3, 1", ph="n  oder  Liste: 4, 6, 5, 1",
+              note="summe, Fakultät: n bis 12. Hanoi: n bis 7. mergeSort: Liste mit höchstens 32 ganzen Zahlen.")]),
+    Action("master", "Master-Satz", "T(n) = a·T(n/b) + c·nᵏ: Rekursionsbaum je Ebene, dann Θ(n^log_b a), Θ(nᵏ log n) oder Θ(nᵏ)",
+           [F("ma", "a (Teilprobleme)", default="2", w=130), F("mb", "b (Teilung n/b)", default="2", w=130),
+            F("mk", "k (Zerlegen: nᵏ)", default="1", w=130), F("mc", "c", default="1", w=100)]),
+    Action("linrec", "Lineare Rekursion", "T(n) = c₁·T(n−1) + c₂·T(n−2) + F(n): charakteristische Gleichung, Ansatz, Konstanten",
+           [F("lc", "Koeffizienten c₁, c₂", default="6, -9", ph="5   oder   6, -9", w=0),
+            F("lF", "F(n) (0 = homogen)", default="0", ph="0   oder   2**n   oder   7*n"),
+            F("li", "Anfangswerte", default="T(0)=1, T(1)=6", ph="T(0)=1, T(1)=6")]),
+]
+
+
 @dataclass
 class PageSpec:
     key: str
@@ -657,6 +674,25 @@ EX_ALGORITHMEN = [
     _ex("x³ ∉ O(x²)", "landau", lf="x**3", lg="x**2", lr="O"),
 ]
 
+EX_REKURSION = [
+    _ex("Serie 6·1: summe(5), Rekursionsbaum", "tree", ralg="summe", rarg="5"),
+    _ex("Serie 6·1: Fakultät 5", "tree", ralg="fakultaet", rarg="5"),
+    _ex("Serie 6·2: mergeSort [4, 6, 5, 1, 7, 4, 3, 1]", "tree", ralg="mergeSort", rarg="4, 6, 5, 1, 7, 4, 3, 1"),
+    _ex("Serie 6·3: Türme von Hanoi, n = 3", "tree", ralg="hanoi", rarg="3"),
+    _ex("Serie 6·5: TA(n) = 2·T(n/2) + 1", "master", ma="2", mb="2", mk="0", mc="1"),
+    _ex("Serie 6·5: TB(n) = 2·T(n/2) + n (mergeSort)", "master", ma="2", mb="2", mk="1", mc="1"),
+    _ex("Serie 6·5: TC(n) = 2·T(n/2) + n²", "master", ma="2", mb="2", mk="2", mc="1"),
+    _ex("Serie 6·7a: 4·T(n/3) + n²", "master", ma="4", mb="3", mk="2", mc="1"),
+    _ex("Serie 6·7c: 16·T(n/4) + n²", "master", ma="16", mb="4", mk="2", mc="1"),
+    _ex("Serie 6·7d: 4·T(n/2) + 1", "master", ma="4", mb="2", mk="0", mc="1"),
+    _ex("Serie 6·8a: T(n) = 5·T(n−1), T(0) = 4", "linrec", lc="5", lF="0", li="T(0)=4"),
+    _ex("Serie 6·8b: T(n) = 6·T(n−1) − 9·T(n−2)", "linrec", lc="6, -9", lF="0", li="T(0)=1, T(1)=6"),
+    _ex("Serie 6·8c: T(n) = T(n−1) + 2·T(n−2)", "linrec", lc="1, 2", lF="0", li="T(0)=2, T(1)=7"),
+    _ex("Serie 6·8d: T(n) = 3·T(n−1) + 2ⁿ, T(1) = 3", "linrec", lc="3", lF="2**n", li="T(1)=3"),
+    _ex("Serie 6·8e: T(n) = 5·T(n−1) − 6·T(n−2) + 7n", "linrec", lc="5, -6", lF="7*n", li="T(0)=1, T(1)=15"),
+    _ex("Hanoi: T(n) = 2·T(n−1) + 1", "linrec", lc="2", lF="1", li="T(1)=1"),
+]
+
 PAGES: dict[str, PageSpec] = {
     "datentypen": PageSpec("datentypen", "Datentypen", "Datentypen (SW1)",
                            "Boolesche Ausdrücke, Zahlsysteme, Brüche, IEEE 754, Zweierkomplement und Mengen.",
@@ -673,6 +709,9 @@ PAGES: dict[str, PageSpec] = {
     "algorithmen": PageSpec("algorithmen", "Algorithmen", "Algorithmen (SW5)",
                             "Rechenschritte zählen, Worst Case, Wachstum vergleichen, grösstes n und Landau-Symbole.",
                             ALGORITHMEN, EX_ALGORITHMEN),
+    "rekursion": PageSpec("rekursion", "Rekursion", "Rekursion (SW6)",
+                          "Rekursionsbäume, Türme von Hanoi, Master-Satz für divide and conquer und lineare Rekursionsbeziehungen.",
+                          REKURSION, EX_REKURSION),
 }
 PAGE_KEYS = tuple(PAGES)
 
@@ -848,9 +887,45 @@ def calc_algorithmen(p: dict):
         return fn(f, g)
     raise InputError("Unbekannte Rechnung.")
 
+def _read_init(text: str) -> dict:
+    """»T(0)=1, T(1)=6« oder »1, 6« (dann ab Index 0) -> {0: 1, 1: 6}."""
+    s = (text or "").replace(MINUS, "-")
+    pairs = re.findall(r"T\(\s*(-?\d+)\s*\)\s*=\s*(-?\d+(?:/\d+)?)", s)
+    if pairs:
+        return {int(i): Fraction(v) for i, v in pairs}
+    vals = read_list(s, "die Anfangswerte")
+    if not vals or not all(isinstance(v, int) and not isinstance(v, bool) for v in vals):
+        raise InputError("Bitte die Anfangswerte als T(0)=1, T(1)=6 angeben (oder als 1, 6).")
+    return {i: v for i, v in enumerate(vals)}
+
+
+def calc_rekursion(p: dict):
+    a = p.get("action", "tree")
+    if a == "tree":
+        alg = p.get("ralg", "mergeSort")
+        if alg == "mergeSort":
+            vals = read_list(p.get("rarg", ""), "die Liste")
+            if not vals or not all(isinstance(v, int) and not isinstance(v, bool) for v in vals):
+                raise InputError("mergeSort braucht eine Liste ganzer Zahlen, etwa 4, 6, 5, 1.")
+            return dk.recursion_tree("mergeSort", vals)
+        n = get_int(p, "rarg", "n", 1, 7 if alg == "hanoi" else 12)
+        return dk.hanoi(n) if alg == "hanoi" else dk.recursion_tree(alg, n)
+    if a == "master":
+        return dk.master_theorem(get_int(p, "ma", "a", 1, 10 ** 6), get_int(p, "mb", "b", 2, 10 ** 6),
+                                 get_int(p, "mk", "k", 0, 100), get_fraction(p, "mc", "c"), levels=6)
+    if a == "linrec":
+        coeffs = [Fraction(v.replace(MINUS, "-")) if re.fullmatch(r"-?[\d/]+", v.replace(MINUS, "-")) else None
+                  for v in split_top(get_text(p, "lc", "die Koeffizienten c₁, c₂"))]
+        if None in coeffs:
+            raise InputError("Die Koeffizienten sind Zahlen, etwa 6, -9.")
+        coeffs = [int(c) if c.denominator == 1 else c for c in coeffs]
+        f = (p.get("lF") or "0").strip() or "0"
+        return dk.solve_recurrence(coeffs, f, _read_init(p.get("li", "")))
+    raise InputError("Unbekannte Rechnung.")
+
 
 CALC = {"datentypen": calc_datentypen, "logik": calc_logik, "praedikate": calc_praedikate,
-        "kalkuel": calc_kalkuel, "algorithmen": calc_algorithmen}
+        "kalkuel": calc_kalkuel, "algorithmen": calc_algorithmen, "rekursion": calc_rekursion}
 
 
 def calc(page: str, p: dict):
@@ -877,6 +952,8 @@ def figure_names(page: str, p: dict) -> list[str]:
         return ["Vorher", "Nachher"]
     if page == "algorithmen" and act == "growth":
         return ["Logarithmisch", "Linear"]
+    if page == "rekursion" and act == "tree":
+        return ["Aufrufe", "Mit Rückgabe"]
     return ["Zeichnung"]
 
 
@@ -991,6 +1068,20 @@ def make_figure(page: str, p: dict, result, dark: bool = False, variant: int = 0
                 funcs[f"{result.C}·g"] = f"({result.C})*({to_n(result.g)})"
             x0 = int(result.x0) if result.x0 is not None else 1
             return dk.plot_growth(funcs, n_max=max(10, min(x0 * 3, 60)), dark=dark)
+    if page == "rekursion":
+        if a == "tree":
+            res = result if p.get("ralg") != "hanoi" else dk.recursion_tree("hanoi", result.n)
+            return res.figure(values=(variant == 1), dark=dark)
+        if a == "master":
+            ns = sorted(result.values)
+            return dk.plot_steps(ns, [int(result.values[n]) for n in ns], dark=dark, log=True,
+                                 title="T(n) aus der Rekursion für n = bʲ (logarithmische Achse)")
+        if a == "linrec":
+            i0 = min(int(k) for k in (result.init or {0: 0}))
+            ns = list(range(i0, i0 + 13))
+            vals = [result.at(n) for n in ns]
+            vals = [int(v) if v == int(v) else float(v) for v in vals]
+            return dk.plot_steps(ns, vals, dark=dark, title="T(n) für die ersten Werte")
     raise NotImplementedError(NO_FIGURE)
 
 
@@ -1490,6 +1581,7 @@ def wolfram_subtitle(page: str) -> str:
         "praedikate": "Für Quantoren gibt es keine Prüfung bei Wolfram|Alpha.",
         "kalkuel": "Prüft über die Wahrheitstabelle, ob die Folgerung beziehungsweise Umformung gilt.",
         "algorithmen": "Prüft das grösste n: f(n) ≤ Budget < f(n + 1) bei Wolfram|Alpha.",
+        "rekursion": "Für Rekursion gibt es keine Prüfung bei Wolfram|Alpha. Die Rechnung prüft sich selbst (Probe im Rechenweg).",
     }[page]
 
 
@@ -3609,7 +3701,7 @@ class AnimationPane(QWidget):
 
 class ToolPage(QWidget):
     """
-    Gemeinsames Gerüst der fünf Seiten.
+    Gemeinsames Gerüst der sechs Seiten.
 
     Links die Aufgabe (Rechnung wählen, Felder ausfüllen) und die Prüfung mit
     Wolfram|Alpha, rechts die Ergebniskarte. Was eine Seite kann, steht als Daten
@@ -4404,7 +4496,7 @@ class MainWindow(QMainWindow):
     def keyPressEvent(self, event):
         mods = event.modifiers()
         if mods & (Qt.ControlModifier | Qt.MetaModifier):
-            if Qt.Key_1 <= event.key() <= Qt.Key_5:
+            if Qt.Key_1 <= event.key() <= Qt.Key_6:
                 self.set_page(event.key() - Qt.Key_1)
                 return
             if event.key() in (Qt.Key_Return, Qt.Key_Enter):

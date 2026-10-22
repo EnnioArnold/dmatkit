@@ -3,7 +3,7 @@
 Tests für dmatkit_qt (Fenster ohne Bildschirm): python3 tests/tests_app.py
 
 Läuft mit QT_QPA_PLATFORM=offscreen, braucht kein Netz. Legt Bilder der
-fünf Seiten (hell und dunkel, Tabellen, Syntaxbaum …) in tests/shots/ ab
+sechs Seiten (hell und dunkel, Tabellen, Syntaxbaum …) in tests/shots/ ab
 (oder dort, wo DMATKIT_SHOTS hinzeigt).
 """
 import os
@@ -105,6 +105,18 @@ raises_input("algorithmen", dict(action="growth", gf="n**2", gn="a, b"), "ganze 
 raises_input("algorithmen", dict(action="maxn", mf="n**2", mt="0"), "grösser als 0")
 raises_input("algorithmen", dict(action="maxn", mf="n**(", mt="60"), "")
 raises_input("algorithmen", dict(action="landau", lf="", lg="x"), "funktion f")
+raises_input("rekursion", dict(action="tree", ralg="summe", rarg="0"), "mindestens")
+raises_input("rekursion", dict(action="tree", ralg="summe", rarg="abc"), "ganze zahl")
+raises_input("rekursion", dict(action="tree", ralg="hanoi", rarg="8"), "höchstens")
+raises_input("rekursion", dict(action="tree", ralg="mergeSort", rarg="a, b"), "ganzer zahlen")
+raises_input("rekursion", dict(action="master", ma="2", mb="1", mk="1"), "mindestens")
+raises_input("rekursion", dict(action="master", ma="2", mb="2", mk="1", mc="0"), "grösser als 0")
+raises_input("rekursion", dict(action="linrec", lc="1, 2, 3", lF="0", li="T(0)=1"), "")
+raises_input("rekursion", dict(action="linrec", lc="x", lF="0", li="T(0)=1"), "zahlen")
+raises_input("rekursion", dict(action="linrec", lc="5", lF="0", li=""), "")
+raises_input("rekursion", dict(action="linrec", lc="5", lF="evil(n)", li="T(0)=1"), "")
+raises_input("rekursion", dict(action="linrec", lc="1, 1", lF="0", li="T(0)=1"), "")
+raises_input("rekursion", dict(action="linrec", lc="0, -1", lF="0", li="T(0)=1, T(1)=1"), "")
 
 # ---------------------------------------------------------------- Wolfram: Parser
 check(A.parse_wolfram_bools("{True, False, False, True}") == [True, False, False, True])
@@ -263,7 +275,7 @@ for tex in (r"A \wedge \neg B \Rightarrow C", "A ∧ B ∨ ¬C → D ↔ E", r"W
 app, win = A.create_app([])
 win.show()
 app.processEvents()
-check(len(win.pages) == 5)
+check(len(win.pages) == 6)
 check([p.KEY for p in win.pages] == list(A.PAGE_KEYS))
 
 
@@ -320,6 +332,9 @@ shot("datentypen", "Serie 1·5b", 0, "ieee")
 shot("datentypen", "−10 im", 1, "bits")
 shot("algorithmen", "Serie 5·1: A, B, C", 0, "wachstum")
 shot("algorithmen", "Serie 5·1: grösstes", 1, "maxn_plot")
+shot("rekursion", "Serie 6·2", 0, "rekursion_rechenweg")
+shot("rekursion", "Serie 6·2", 1, "rekursion_baum")
+shot("rekursion", "Serie 6·8e", 0, "rekursion_linear")
 pg = shot("algorithmen", "Worst Case insertionSort", 0, "worstcase")
 check("Schritt" in pg.vm.title or pg.vm.title)
 
